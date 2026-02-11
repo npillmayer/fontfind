@@ -3,20 +3,20 @@ package locate_test
 import (
 	"testing"
 
-	"github.com/npillmayer/fontloading"
-	"github.com/npillmayer/fontloading/locate"
-	"github.com/npillmayer/fontloading/locate/fallbackfont"
-	"github.com/npillmayer/fontloading/locate/googlefont"
+	"github.com/npillmayer/fontfind"
+	"github.com/npillmayer/fontfind/locate"
+	"github.com/npillmayer/fontfind/locate/fallbackfont"
+	"github.com/npillmayer/fontfind/locate/googlefont"
 	"github.com/npillmayer/schuko/schukonf/testconfig"
 	"github.com/npillmayer/schuko/tracing/gotestingadapter"
 	"golang.org/x/image/font"
 )
 
 func TestLoadPackagedFont(t *testing.T) {
-	teardown := gotestingadapter.QuickConfig(t, "fontloading")
+	teardown := gotestingadapter.QuickConfig(t, "fontfind")
 	defer teardown()
 	//
-	desc := fontloading.Descriptor{
+	desc := fontfind.Descriptor{
 		Pattern: "Go",
 		Style:   font.StyleNormal,
 		Weight:  font.WeightNormal,
@@ -40,7 +40,7 @@ func TestResolveGoogleFont(t *testing.T) {
 	conf := testconfig.Conf{
 		"app-key": "tyse-test",
 	}
-	desc := fontloading.Descriptor{
+	desc := fontfind.Descriptor{
 		Pattern: "Antic",
 		Style:   font.StyleNormal,
 		Weight:  font.WeightNormal,

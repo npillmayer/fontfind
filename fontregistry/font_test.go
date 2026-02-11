@@ -3,7 +3,7 @@ package fontregistry
 import (
 	"testing"
 
-	"github.com/npillmayer/fontloading"
+	"github.com/npillmayer/fontfind"
 	"github.com/npillmayer/schuko/tracing/gotestingadapter"
 	"golang.org/x/image/font"
 )
@@ -22,7 +22,7 @@ func TestGuess(t *testing.T) {
 		"Microsoft/Gill Sans MT Bold Italic.ttf": {font.StyleItalic, font.WeightBold},
 		"Cambria Math.ttf":                       {font.StyleNormal, font.WeightNormal},
 	} {
-		style, weight := fontloading.GuessStyleAndWeight(k)
+		style, weight := fontfind.GuessStyleAndWeight(k)
 		t.Logf("style = %d, weight = %d", style, weight)
 		if style != v.s || weight != v.w {
 			t.Errorf("expected different style or weight for %s", k)
@@ -34,15 +34,15 @@ func TestMatch(t *testing.T) {
 	teardown := gotestingadapter.QuickConfig(t, "resources")
 	defer teardown()
 	//
-	if !fontloading.Matches("fonts/Clarendon-bold.ttf",
+	if !fontfind.Matches("fonts/Clarendon-bold.ttf",
 		"clarendon", font.StyleNormal, font.WeightBold) {
 		t.Errorf("expected match for Clarendon, haven't")
 	}
-	if !fontloading.Matches("Microsoft/Gill Sans MT Bold Italic.ttf",
+	if !fontfind.Matches("Microsoft/Gill Sans MT Bold Italic.ttf",
 		"gill sans", font.StyleItalic, font.WeightBold) {
 		t.Errorf("expected match for Gill, haven't")
 	}
-	if !fontloading.Matches("Cambria Math.ttf",
+	if !fontfind.Matches("Cambria Math.ttf",
 		"cambria", font.StyleNormal, font.WeightNormal) {
 		t.Errorf("expected match for Cambria Math, haven't")
 	}

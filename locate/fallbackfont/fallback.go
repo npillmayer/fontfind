@@ -4,8 +4,8 @@ import (
 	"embed"
 	"errors"
 
-	"github.com/npillmayer/fontloading"
-	"github.com/npillmayer/fontloading/locate"
+	"github.com/npillmayer/fontfind"
+	"github.com/npillmayer/fontfind/locate"
 	"github.com/npillmayer/schuko/tracing"
 	"golang.org/x/image/font"
 )
@@ -19,7 +19,7 @@ func tracer() tracing.Trace {
 var packaged embed.FS
 
 func Find() locate.FontLocator {
-	return func(descr fontloading.Descriptor) (fontloading.ScalableFont, error) {
+	return func(descr fontfind.Descriptor) (fontfind.ScalableFont, error) {
 		pattern := descr.Pattern
 		style := descr.Style
 		weight := descr.Weight
@@ -27,23 +27,23 @@ func Find() locate.FontLocator {
 	}
 }
 
-func FindFallbackFont(pattern string, style font.Style, weight font.Weight) (fontloading.ScalableFont, error) {
+func FindFallbackFont(pattern string, style font.Style, weight font.Weight) (fontfind.ScalableFont, error) {
 	fonts, _ := packaged.ReadDir("packaged")
 	var fname string // path to embedded font, if any
 	for _, f := range fonts {
 		if f.IsDir() {
 			continue
 		}
-		if fontloading.Matches(f.Name(), pattern, style, weight) {
+		if fontfind.Matches(f.Name(), pattern, style, weight) {
 			tracer().Debugf("found embedded font file %s", f.Name())
 			fname = f.Name()
 			break
 		}
 		fname = f.Name()
 	}
-	var sFont fontloading.ScalableFont
+	var sFont fontfind.ScalableFont
 	if fname == "" {
-		return fontloading.NullFont, errors.New("font not found")
+		return fontfind.NullFont, errors.New("font not found")
 	}
 	// font is packaged embedded font
 	sFont.Name = fname

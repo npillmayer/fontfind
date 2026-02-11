@@ -10,7 +10,7 @@ is quick and dirty right now.
 package locate
 
 import (
-	"github.com/npillmayer/fontloading"
+	"github.com/npillmayer/fontfind"
 )
 
-type FontLocator func(fontloading.Descriptor) (fontloading.ScalableFont, error)
+type FontLocator func(fontfind.Descriptor) (fontfind.ScalableFont, error)

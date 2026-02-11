@@ -37,7 +37,7 @@ folder of this module.
 
 Copyright © Norbert Pillmayer <norbert@pillmayer.com>
 */
-package fontloading
+package fontfind
 
 import (
 	"errors"

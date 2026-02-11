@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/npillmayer/fontloading"
+	"github.com/npillmayer/fontfind"
 )
 
 // notFound returns an application error for a missing resource.
@@ -13,21 +13,21 @@ func notFound(res string) error {
 }
 
 type fontPlusErr struct {
-	font fontloading.ScalableFont
+	font fontfind.ScalableFont
 	err  error
 }
 
 // TypefacePromise runs font searching asynchronously in the background.
 // A call to `Typeface()` blocks until font loading is completed.
 type TypefacePromise interface {
-	Typeface() (fontloading.ScalableFont, error)
+	Typeface() (fontfind.ScalableFont, error)
 }
 
 type fontLoader struct {
-	await func(ctx context.Context) (fontloading.ScalableFont, error)
+	await func(ctx context.Context) (fontfind.ScalableFont, error)
 }
 
-func (loader fontLoader) Typeface() (fontloading.ScalableFont, error) {
+func (loader fontLoader) Typeface() (fontfind.ScalableFont, error) {
 	return loader.await(context.Background())
 }
 
@@ -63,7 +63,7 @@ func (loader fontLoader) Typeface() (fontloading.ScalableFont, error) {
 //
 // Typefaces are not returned synchronously, but rather as a promise
 // of kind TypefacePromise (async/await).
-func ResolveTypeface(desc fontloading.Descriptor, resolvers ...FontLocator) TypefacePromise {
+func ResolveTypeface(desc fontfind.Descriptor, resolvers ...FontLocator) TypefacePromise {
 	// TODO include a context parameter
 	ch := make(chan fontPlusErr)
 	go func(ch chan<- fontPlusErr) {
@@ -72,10 +72,10 @@ func ResolveTypeface(desc fontloading.Descriptor, resolvers ...FontLocator) Type
 		close(ch)
 	}(ch)
 	loader := fontLoader{}
-	loader.await = func(ctx context.Context) (fontloading.ScalableFont, error) {
+	loader.await = func(ctx context.Context) (fontfind.ScalableFont, error) {
 		select {
 		case <-ctx.Done():
-			return fontloading.NullFont, ctx.Err()
+			return fontfind.NullFont, ctx.Err()
 		case r := <-ch:
 			return r.font, r.err
 		}
@@ -83,7 +83,7 @@ func ResolveTypeface(desc fontloading.Descriptor, resolvers ...FontLocator) Type
 	return loader
 }
 
-func searchScalableFont(desc fontloading.Descriptor, resolvers []FontLocator) (result fontPlusErr) {
+func searchScalableFont(desc fontfind.Descriptor, resolvers []FontLocator) (result fontPlusErr) {
 	// name := fontregistry.NormalizeFontname(desc.Pattern, desc.Style, desc.Weight)
 	// if t, err := fontregistry.GlobalRegistry().Typeface(name); err == nil {
 	// 	result.font = t
@@ -101,7 +101,7 @@ func searchScalableFont(desc fontloading.Descriptor, resolvers []FontLocator) (r
 	// 	fontregistry.GlobalRegistry().StoreFont(name, f)
 	// 	result.font, result.err = fontregistry.GlobalRegistry().Typeface(name, size)
 	// 	result.desc.Family = name
-	// 	//fontloading.GlobalRegistry().DebugList()
+	// 	//fontfind.GlobalRegistry().DebugList()
 	// } else { // use fallback font
 	// 	result.font, _ = fontregistry.GlobalRegistry().Typeface("fallback", size)
 	// 	result.desc.Family = "fallback"

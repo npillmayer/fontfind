@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/npillmayer/fontloading"
+	"github.com/npillmayer/fontfind"
 	"github.com/npillmayer/schuko/tracing"
 	xfont "golang.org/x/image/font"
 )
@@ -13,7 +13,7 @@ import (
 // Registry is a type for holding information about loaded fonts.
 type Registry struct {
 	sync.Mutex
-	typefaces map[string]fontloading.ScalableFont
+	typefaces map[string]fontfind.ScalableFont
 }
 
 var globalFontRegistry *Registry
@@ -31,7 +31,7 @@ func GlobalRegistry() *Registry {
 
 func NewRegistry() *Registry {
 	fr := &Registry{
-		typefaces: make(map[string]fontloading.ScalableFont),
+		typefaces: make(map[string]fontfind.ScalableFont),
 	}
 	return fr
 }
@@ -40,7 +40,7 @@ func NewRegistry() *Registry {
 //
 // The typeface will be stored using the normalized font name as a key. If this
 // key is already associated with a font, that font will not be overridden.
-func (fr *Registry) StoreTypeface(normalizedName string, f fontloading.ScalableFont) {
+func (fr *Registry) StoreTypeface(normalizedName string, f fontfind.ScalableFont) {
 	if f.Name == "" || f.Path == "" {
 		tracer().Errorf("registry cannot store null font")
 		return
@@ -61,7 +61,7 @@ func (fr *Registry) StoreTypeface(normalizedName string, f fontloading.ScalableF
 //
 // If no typeface can be produced, Typeface will derive one from a system-wide
 // fallback font and return it, together with an error message.
-func (fr *Registry) Typeface(normalizedName string) (fontloading.ScalableFont, error) {
+func (fr *Registry) Typeface(normalizedName string) (fontfind.ScalableFont, error) {
 	//
 	tracer().Debugf("registry searches for font %s", normalizedName)
 	fr.Lock()
@@ -78,7 +78,7 @@ func (fr *Registry) Typeface(normalizedName string) (fontloading.ScalableFont, e
 	if t, ok := fr.typefaces[fname]; ok {
 		return t, err
 	}
-	f := fontloading.FallbackFont()
+	f := fontfind.FallbackFont()
 	tracer().Infof("font registry caches fallback font %s", fname)
 	fr.typefaces[fname] = f
 	return f, err

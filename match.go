@@ -1,4 +1,4 @@
-package fontloading
+package fontfind
 
 import (
 	"path"

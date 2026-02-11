@@ -1,4 +1,4 @@
-module github.com/npillmayer/fontloading
+module github.com/npillmayer/fontfind
 
 go 1.25.6
 

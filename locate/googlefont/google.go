@@ -1,8 +1,8 @@
 package googlefont
 
 import (
-	"github.com/npillmayer/fontloading"
-	"github.com/npillmayer/fontloading/locate"
+	"github.com/npillmayer/fontfind"
+	"github.com/npillmayer/fontfind/locate"
 	"github.com/npillmayer/schuko"
 	"github.com/npillmayer/schuko/schukonf/testconfig"
 	"github.com/npillmayer/schuko/tracing"
@@ -14,7 +14,7 @@ func tracer() tracing.Trace {
 }
 
 func Find(conf schuko.Configuration) locate.FontLocator {
-	return func(descr fontloading.Descriptor) (fontloading.ScalableFont, error) {
+	return func(descr fontfind.Descriptor) (fontfind.ScalableFont, error) {
 		pattern := descr.Pattern
 		style := descr.Style
 		weight := descr.Weight

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/npillmayer/fontloading"
+	"github.com/npillmayer/fontfind"
 	"github.com/npillmayer/schuko"
 	"github.com/npillmayer/schuko/tracing"
 	font "golang.org/x/image/font"
@@ -20,7 +20,7 @@ import (
 
 // GoogleFontInfo describes a font entry in the Google Font Service.
 type GoogleFontInfo struct {
-	fontloading.FontVariantsLocation
+	fontfind.FontVariantsLocation
 	Version string            `json:"version"`
 	Subsets []string          `json:"subsets"`
 	Files   map[string]string `json:"files"`
@@ -78,23 +78,23 @@ func setupGoogleFontsDirectory(conf schuko.Configuration) (err error) {
 }
 
 func FindGoogleFont(conf schuko.Configuration, pattern string, style font.Style, weight font.Weight) (
-	fontloading.ScalableFont, error) {
+	fontfind.ScalableFont, error) {
 	//
 	fiList, err := matchGoogleFontInfo(conf, pattern, style, weight)
 	if err != nil {
-		return fontloading.NullFont, err
+		return fontfind.NullFont, err
 	}
 	if len(fiList) == 0 {
-		return fontloading.NullFont, fmt.Errorf("no matching Google font found")
+		return fontfind.NullFont, fmt.Errorf("no matching Google font found")
 	}
 	fi := fiList[0]
 	variant := fi.Variants[0] // TODO find variant with highest confidence
 	cachedir, name, err := cacheGoogleFont(conf, fi, variant)
 	if err != nil {
-		return fontloading.NullFont, err
+		return fontfind.NullFont, err
 	}
 	fsys := os.DirFS(cachedir)
-	return fontloading.ScalableFont{
+	return fontfind.ScalableFont{
 		Name:       name,
 		Style:      style,
 		Weight:     weight,
@@ -127,9 +127,9 @@ func matchGoogleFontInfo(conf schuko.Configuration, pattern string, style font.S
 		//trace().Debugf("testing (%s)", strings.ToLower(finfo.Family))
 		if r.MatchString(strings.ToLower(finfo.Family)) {
 			tracer().Debugf("Google font name matches pattern: %s", finfo.Family)
-			_, _, confidence := fontloading.ClosestMatch([]fontloading.FontVariantsLocation{finfo.FontVariantsLocation}, pattern,
+			_, _, confidence := fontfind.ClosestMatch([]fontfind.FontVariantsLocation{finfo.FontVariantsLocation}, pattern,
 				style, weight)
-			if confidence > fontloading.LowConfidence {
+			if confidence > fontfind.LowConfidence {
 				fiList = append(fiList, finfo)
 				break
 			}

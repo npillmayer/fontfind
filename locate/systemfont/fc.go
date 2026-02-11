@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/npillmayer/fontloading"
+	"github.com/npillmayer/fontfind"
 	"github.com/npillmayer/schuko"
 	xfont "golang.org/x/image/font"
 )
@@ -59,12 +59,12 @@ func findFontList(appkey string) ([]byte, error) {
 	return io.ReadAll(file)
 }
 
-var noFonts = []fontloading.FontVariantsLocation{}
+var noFonts = []fontfind.FontVariantsLocation{}
 
 // loadFontConfigList searches the user's configuration directory for a font list file,
 // then reads the file and parses it into a list of font variants.
 // This list of font variants is then stored globally.
-func loadFontConfigList(appkey string) ([]fontloading.FontVariantsLocation, bool) {
+func loadFontConfigList(appkey string) ([]fontfind.FontVariantsLocation, bool) {
 	fclist, err := findFontList(appkey)
 	if err != nil {
 		return noFonts, false
@@ -89,7 +89,7 @@ func loadFontConfigList(appkey string) ([]fontloading.FontVariantsLocation, bool
 			ttc++
 			continue
 		}
-		desc := fontloading.FontVariantsLocation{
+		desc := fontfind.FontVariantsLocation{
 			Family: fontname,
 			Path:   fontpath,
 		}
@@ -120,14 +120,14 @@ func loadFontConfigList(appkey string) ([]fontloading.FontVariantsLocation, bool
 
 var loadFontConfigListTask sync.Once
 var loadedFontConfigListOK bool
-var fontConfigDescriptors []fontloading.FontVariantsLocation
+var fontConfigDescriptors []fontfind.FontVariantsLocation
 
 // findFontConfigFont searches for a locally installed font variant using the fontconfig
 // system (https://www.freedesktop.org/wiki/Software/fontconfig/).
 // However, we need some preparation from the user to de-couple from the
 // fontconfig library.
 func findFontConfigFont(appkey string, pattern string, style xfont.Style, weight xfont.Weight) (
-	desc fontloading.FontVariantsLocation, variant string) {
+	desc fontfind.FontVariantsLocation, variant string) {
 	//
 	loadFontConfigListTask.Do(func() {
 		_, loadedFontConfigListOK = loadFontConfigList(appkey)
@@ -136,11 +136,11 @@ func findFontConfigFont(appkey string, pattern string, style xfont.Style, weight
 	if !loadedFontConfigListOK {
 		return
 	}
-	var confidence fontloading.MatchConfidence
-	desc, variant, confidence = fontloading.ClosestMatch(fontConfigDescriptors, pattern, style, weight)
+	var confidence fontfind.MatchConfidence
+	desc, variant, confidence = fontfind.ClosestMatch(fontConfigDescriptors, pattern, style, weight)
 	tracer().Debugf("closest fontconfig match confidence for %s|%s= %d", desc.Family, variant, confidence)
-	if confidence > fontloading.LowConfidence {
+	if confidence > fontfind.LowConfidence {
 		return
 	}
-	return fontloading.FontVariantsLocation{}, ""
+	return fontfind.FontVariantsLocation{}, ""
 }
