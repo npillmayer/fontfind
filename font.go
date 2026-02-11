@@ -37,17 +37,14 @@ folder of this module.
 
 Copyright © Norbert Pillmayer <norbert@pillmayer.com>
 */
-package font
+package fontloading
 
 import (
-	"fmt"
-	"os"
-	"sync"
+	"errors"
+	"io/fs"
 
 	"github.com/npillmayer/schuko/tracing"
-	xfont "golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
-	"golang.org/x/image/font/opentype"
+	"golang.org/x/image/font"
 	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 )
@@ -58,142 +55,43 @@ func tracer() tracing.Trace {
 }
 
 const (
-	StyleNormal = xfont.StyleNormal
-	StyleItalic = xfont.StyleItalic
+	StyleNormal = font.StyleNormal
+	StyleItalic = font.StyleItalic
 )
 
 const (
-	WeightLight    = xfont.WeightLight
-	WeightNormal   = xfont.WeightNormal
-	WeightSemiBold = xfont.WeightSemiBold
-	WeightBold     = xfont.WeightBold
+	WeightLight    = font.WeightLight
+	WeightNormal   = font.WeightNormal
+	WeightSemiBold = font.WeightSemiBold
+	WeightBold     = font.WeightBold
 )
 
-// ScalableFont is an internal representation of an outline-font of type
-// TTF of OTF.
-type ScalableFont struct {
-	Fontname string
-	Filepath string     // file path
-	Binary   []byte     // raw data
-	SFNT     *sfnt.Font // the font's container // TODO: not threadsafe???
-}
-
-// TypeCase represents a font at a specific point size, e.g. "Helvetica bold 10pt".
-type TypeCase struct {
-	scalableFontParent *ScalableFont
-	font               xfont.Face // Go uses 'face' and 'font' in an inverse manner
-	size               float32
-	// script
-	// language
-}
-
-func NullTypeCase() *TypeCase {
-	return &TypeCase{
-		font: nil,
-		size: 10,
-	}
-}
-
-// LoadOpenTypeFont loads an OpenType font (TTF or OTF) from a file.
-func LoadOpenTypeFont(fontfile string) (*ScalableFont, error) {
-	bytez, err := os.ReadFile(fontfile)
-	if err != nil {
-		return nil, err
-	}
-	return ParseOpenTypeFont(bytez)
-}
-
-// ParseOpenTypeFont loads an OpenType font (TTF or OTF) from memory.
-func ParseOpenTypeFont(fbytes []byte) (f *ScalableFont, err error) {
-	f = &ScalableFont{Binary: fbytes}
-	f.SFNT, err = sfnt.Parse(f.Binary)
-	if err != nil {
-		return nil, err
-	}
-	if f.Fontname, err = f.SFNT.Name(nil, sfnt.NameIDFull); err == nil {
-		tracer().Debugf("loaded and parsed SFNT %s", f.Fontname)
-	}
-	return
-}
-
-// PrepareCase prepares a typecase in a given point size, e.g. "Helvetica bold 10pt"
-// from an existing font "Helvetiva bold", which has been previously loaded.
-func (sf *ScalableFont) PrepareCase(fontsize float32) (*TypeCase, error) {
-	// TODO: check if language fits to script
-	// TODO: check if font supports script
-	typecase := &TypeCase{}
-	typecase.scalableFontParent = sf
-	if fontsize < 5.0 || fontsize > 500.0 {
-		fmt.Printf("prepare typecase: size must be 5pt < size < 500pt, is %g (set to 10pt)\n", fontsize)
-		fontsize = 10.0
-	}
-	options := &opentype.FaceOptions{
-		Size: float64(fontsize),
-		DPI:  600,
-	}
-	f, err := opentype.NewFace(sf.SFNT, options)
-	if err == nil {
-		typecase.font = f
-		typecase.size = fontsize
-	}
-	return typecase, err
-}
-
-// ScalableFontParent returns the unscaled font a typecase has been derived from.
-func (tc *TypeCase) ScalableFontParent() *ScalableFont {
-	return tc.scalableFontParent
-}
-
-// PtSize returns the point-size of a typecase.
-func (tc *TypeCase) PtSize() float32 {
-	return tc.size
-}
-
-// Metrics returns a font's metrics.
-func (tc *TypeCase) Metrics() xfont.Metrics {
-	return tc.font.Metrics()
-}
-
-// --- Fallback font ---------------------------------------------------------
-
-// FallbackFont returns a font to be used if everything else failes. It is
-// always present. Currently we use Go Sans.
-func FallbackFont() *ScalableFont {
-	fallbackFontLoading.Do(func() {
-		fallbackFont = loadFallbackFont()
-	})
-	return fallbackFont
-}
-
-var fallbackFontLoading sync.Once
-
-// fallbackFont is a font that is used if everything else failes.
-// Currently we use Go Sans.
-var fallbackFont *ScalableFont
-
-func loadFallbackFont() *ScalableFont {
-	var err error
-	gofont := &ScalableFont{
-		Fontname: "Go Sans",
-		Filepath: "internal",
-		Binary:   goregular.TTF,
-	}
-	gofont.SFNT, err = sfnt.Parse(gofont.Binary)
-	if err != nil {
-		panic("cannot load default font") // this cannot happen
-	}
-	return gofont
-}
-
-// ---------------------------------------------------------------------------
-
-// TODO make this something like Apple's font descriptors
-
-// Descriptor represents all the known variants of a font.
 type Descriptor struct {
-	Family   string   `json:"family"`
-	Variants []string `json:"variants"`
-	Path     string   // only used if just a single variant
+	Pattern string
+	Style   font.Style
+	Weight  font.Weight
+}
+
+type ScalableFont struct {
+	Name       string
+	Path       string
+	FileSystem fs.FS
+	Style      font.Style
+	Weight     font.Weight
+}
+
+var NullFont = ScalableFont{}
+
+func FindTypeface(typefaceName string, style font.Style, weight font.Weight) ([]ScalableFont, error) {
+	if typefaceName == "" {
+		return nil, errors.New("need at least font typeface name")
+	}
+	return nil, errors.New("no font file found")
+}
+
+// TODO
+func FallbackFont() ScalableFont {
+	panic("fallback fonts not yet implemented")
 }
 
 // ---------------------------------------------------------------------------

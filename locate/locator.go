@@ -10,16 +10,7 @@ is quick and dirty right now.
 package locate
 
 import (
-	"os"
-	"path/filepath"
+	"github.com/npillmayer/fontloading"
 )
 
-// Return path for a resource file
-func FileResource(item string, typ string) string {
-	var path string
-	switch typ {
-	case "font":
-		path = filepath.Join(os.Getenv("HOME"), "Library", "Fonts", item)
-	}
-	return path
-}
+type FontLocator func(fontloading.Descriptor) (fontloading.ScalableFont, error)
