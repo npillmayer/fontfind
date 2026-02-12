@@ -28,11 +28,14 @@ go get github.com/npillmayer/fontfind
 - `NullFont`: zero-value marker used for unresolved results
 - `FallbackFont()`: returns packaged default fallback (`Go-Regular.otf`)
 
-`ScalableFont` methods:
+`ScalableFont` is a container for the location of the font's binary data. 
+It is not to be used as a font directly, but rather holds the information how the
+binary font data may be obtained.
+`ScalableFont` methods are:
 
-- `SetFS(fs fs.FS, path string)`
+- `ReadFontData() ([]byte, error)` // clients use this to load font data
 - `Path() string`
-- `ReadFontData() ([]byte, error)`
+- `SetFS(fs fs.FS, path string)`   // used by the resolver pipeline
 
 ### Resolution API (`package locate`)
 
