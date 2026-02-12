@@ -2,82 +2,87 @@ package googlefont
 
 import (
 	"encoding/json"
+	"io"
+	"io/fs"
+	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/npillmayer/schuko/schukonf/testconfig"
-	"github.com/npillmayer/schuko/tracing/gotestingadapter"
 	"golang.org/x/image/font"
 )
 
-// ATTENTION
-// ---------
-// Tests in this file require a Google Font Service API-key to be present.
-// The API-key has to be set with the GOOGLE_FONTS_API_KEY environment variable.
+type fakeIO struct {
+	cacheDir string
+	env      map[string]string
 
-func checkAPIKeyPresent(t *testing.T) {
+	webfontsJSON []byte
+	fontBytes    []byte
+	requestedURL []string
+}
+
+func newFakeIO(t *testing.T) *fakeIO {
 	t.Helper()
-	if os.Getenv("GOOGLE_FONTS_API_KEY") == "" {
-		t.Skip("requires GOOGLE_FONTS_API_KEY")
+	j, err := os.ReadFile(filepath.Join("testdata", "webfonts.json"))
+	if err != nil {
+		t.Fatalf("cannot read test fixture JSON: %v", err)
+	}
+	return &fakeIO{
+		cacheDir:     t.TempDir(),
+		env:          map[string]string{"GOOGLE_FONTS_API_KEY": "test-key"},
+		webfontsJSON: j,
+		fontBytes:    []byte("dummy-font-bytes"),
 	}
 }
 
-const exampleRespFragm string = `
-{
-    "kind": "webfonts#webfontList",
-    "items": [
-        {
-            "kind": "webfonts#webfont",
-            "family": "Anonymous Pro",
-            "variants": [
-                "regular",
-                "italic",
-                "700",
-                "700italic"
-            ],
-            "subsets": [
-                "greek",
-                "greek-ext",
-                "cyrillic-ext",
-                "latin-ext",
-                "latin",
-                "cyrillic"
-            ],
-            "version": "v3",
-            "lastModified": "2012-07-25",
-            "files": {
-                "regular": "http://themes.googleusercontent.com/static/fonts/anonymouspro/v3/Zhfjj_gat3waL4JSju74E-V_5zh5b-_HiooIRUBwn1A.ttf",
-                "italic": "http://themes.googleusercontent.com/static/fonts/anonymouspro/v3/q0u6LFHwttnT_69euiDbWKwIsuKDCXG0NQm7BvAgx-c.ttf",
-                "700": "http://themes.googleusercontent.com/static/fonts/anonymouspro/v3/WDf5lZYgdmmKhO8E1AQud--Cz_5MeePnXDAcLNWyBME.ttf",
-                "700italic": "http://themes.googleusercontent.com/static/fonts/anonymouspro/v3/_fVr_XGln-cetWSUc-JpfA1LL9bfs7wyIp6F8OC9RxA.ttf"
-            }
-        },
-        {
-            "kind": "webfonts#webfont",
-            "family": "Antic",
-            "variants": [
-                "regular"
-            ],
-            "subsets": [
-                "latin"
-            ],
-            "version": "v4",
-            "lastModified": "2012-07-25",
-            "files": {
-                "regular": "http://themes.googleusercontent.com/static/fonts/antic/v4/hEa8XCNM7tXGzD0Uk0AipA.ttf"
-            }
-        }
-    ]
+func (f *fakeIO) Getenv(k string) string {
+	return f.env[k]
 }
-`
+
+func (f *fakeIO) HTTPGet(u string) (*http.Response, error) {
+	f.requestedURL = append(f.requestedURL, u)
+	if strings.HasPrefix(u, defaultGoogleFontsAPI) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Body:       io.NopCloser(strings.NewReader(string(f.webfontsJSON))),
+			Header:     make(http.Header),
+		}, nil
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Status:     "200 OK",
+		Body:       io.NopCloser(strings.NewReader(string(f.fontBytes))),
+		Header:     make(http.Header),
+	}, nil
+}
+
+func (f *fakeIO) UserCacheDir() (string, error) {
+	return f.cacheDir, nil
+}
+
+func (f *fakeIO) DirFS(path string) fs.FS {
+	return os.DirFS(path)
+}
+
+func (f *fakeIO) Stat(path string) (os.FileInfo, error) {
+	return os.Stat(path)
+}
+
+func (f *fakeIO) MkdirAll(path string, perm fs.FileMode) error {
+	return os.MkdirAll(path, perm)
+}
+
+func (f *fakeIO) Create(path string) (io.WriteCloser, error) {
+	return os.Create(path)
+}
 
 func TestGoogleRespDecode(t *testing.T) {
-	teardown := gotestingadapter.QuickConfig(t, "resources")
-	defer teardown()
-	//
-	dec := json.NewDecoder(strings.NewReader(exampleRespFragm))
+	hostio := newFakeIO(t)
+	dec := json.NewDecoder(strings.NewReader(string(hostio.webfontsJSON)))
 	var list googleFontsList
 	err := dec.Decode(&list)
 	if err != nil {
@@ -87,25 +92,28 @@ func TestGoogleRespDecode(t *testing.T) {
 }
 
 func TestGoogleAPI(t *testing.T) {
-	checkAPIKeyPresent(t)
-	teardown := gotestingadapter.QuickConfig(t, "resources")
-	defer teardown()
-	//
+	hostio := newFakeIO(t)
+	svc := newGoogleService(hostio)
 	conf := testconfig.Conf{
 		"app-key": "tyse-test",
 	}
-	err := setupGoogleFontsDirectory(conf)
+	err := svc.setupGoogleFontsDirectory(conf)
 	if err != nil {
-		tracer().Errorf(err.Error())
 		t.Fatal(err)
+	}
+	if len(hostio.requestedURL) != 1 {
+		t.Fatalf("expected 1 API request, got %d", len(hostio.requestedURL))
+	}
+	url := hostio.requestedURL[0]
+	if !strings.Contains(url, "key=test-key") {
+		t.Fatalf("expected API key in request URL, got %q", url)
+	}
+	if !strings.Contains(url, "sort=alpha") {
+		t.Fatalf("expected sort=alpha in request URL, got %q", url)
 	}
 }
 
 func TestMatchFontname(t *testing.T) {
-	checkAPIKeyPresent(t)
-	teardown := gotestingadapter.QuickConfig(t, "resources")
-	defer teardown()
-	//
 	pattern := "Inconsolata"
 	r, err := regexp.Compile(strings.ToLower(pattern))
 	if err != nil {
@@ -117,42 +125,47 @@ func TestMatchFontname(t *testing.T) {
 }
 
 func TestGoogleFindFont(t *testing.T) {
-	checkAPIKeyPresent(t)
-	teardown := gotestingadapter.QuickConfig(t, "resources")
-	defer teardown()
-	//
+	hostio := newFakeIO(t)
+	svc := newGoogleService(hostio)
 	conf := testconfig.Conf{
 		"app-key": "tyse-test",
 	}
-	_, err := FindGoogleFont(conf, "Inconsolata", font.StyleNormal, font.WeightNormal)
+	f, err := svc.findGoogleFont(conf, "Inconsolata", font.StyleNormal, font.WeightNormal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = FindGoogleFont(conf, "Inconsolata", font.StyleItalic, font.WeightNormal)
+	if f.Path != "Inconsolata-regular.ttf" {
+		t.Fatalf("unexpected cached font name %q", f.Path)
+	}
+	if f.FileSystem == nil {
+		t.Fatal("expected font filesystem to be set")
+	}
+	_, err = svc.findGoogleFont(conf, "Inconsolata", font.StyleItalic, font.WeightNormal)
 	if err == nil {
 		t.Error("expected search for Inconsolata Italic to fail, did not")
 	}
 }
 
 func TestGoogleCacheFont(t *testing.T) {
-	checkAPIKeyPresent(t)
-	teardown := gotestingadapter.QuickConfig(t, "resources")
-	defer teardown()
-	//
+	hostio := newFakeIO(t)
+	svc := newGoogleService(hostio)
 	conf := testconfig.Conf{
 		"app-key": "tyse-test",
 	}
-	fi, err := matchGoogleFontInfo(conf, "Inconsolata", font.StyleNormal, font.WeightNormal)
+	fi, err := svc.matchGoogleFontInfo(conf, "Inconsolata", font.StyleNormal, font.WeightNormal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, file, err := cacheGoogleFont(conf, fi[0], "regular")
+	cachedir, file, err := svc.cacheGoogleFont(conf, fi[0], "regular")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("path = %s / %s", path, file)
-	_, err = os.Stat(path)
+	p := filepath.Join(cachedir, file)
+	b, err := os.ReadFile(p)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if string(b) != string(hostio.fontBytes) {
+		t.Fatalf("cached bytes differ from downloaded bytes")
 	}
 }

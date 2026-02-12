@@ -14,11 +14,16 @@ func tracer() tracing.Trace {
 }
 
 func Find(conf schuko.Configuration) locate.FontLocator {
+	return FindWithIO(conf, nil)
+}
+
+func FindWithIO(conf schuko.Configuration, hostio IO) locate.FontLocator {
+	svc := newGoogleService(hostio)
 	return func(descr fontfind.Descriptor) (fontfind.ScalableFont, error) {
 		pattern := descr.Pattern
 		style := descr.Style
 		weight := descr.Weight
-		return FindGoogleFont(conf, pattern, style, weight)
+		return svc.findGoogleFont(conf, pattern, style, weight)
 	}
 }
 

@@ -61,8 +61,9 @@ From `go test ./...` on February 12, 2026 (after test refactoring):
 
 Test behavior notes:
 
-- Google API integration tests are skipped if `GOOGLE_FONTS_API_KEY` is not set.
-- Cache download test is now an offline unit test (mocked HTTP transport, no real network).
+- Google-font package tests are fully offline by default (no real API key, no real network).
+- Google API response in tests is fixture-driven (`locate/googlefont/testdata/webfonts.json`).
+- Cache download test is an offline unit test via fake I/O.
 
 ## Recent Progress
 
@@ -74,6 +75,9 @@ Completed in current refactor cycle:
 - Converted Google API-key tests from fail-fast to skip-if-missing-key behavior.
 - Refactored cache download test to deterministic offline unit-test style.
 - Standardized API-key contract on `GOOGLE_FONTS_API_KEY` in code/comments/messages.
+- Introduced `googlefont.IO` abstraction and service-based internals for host/network decoupling.
+- Added `FindWithIO(...)` to inject fake I/O in tests while keeping existing public API intact.
+- Migrated Google-font tests to fixture-driven fake I/O and removed default runtime network dependency.
 
 ## Known Gaps and Risks
 
@@ -85,6 +89,7 @@ The codebase explicitly marks several unfinished areas:
 - Google variant selection currently picks first variant (`fi.Variants[0]`) instead of best match
 - async resolve API has TODO for context/cancellation integration
 - `systemfont` fontconfig loader uses package-global cache state (`sync.Once` + globals), which may complicate test isolation for future cases
+- `googlefont` default singleton service caches directory state (`sync.Once`), so cross-test/process behavior should be watched when adding more cases
 
 Quality and consistency issues observed:
 
@@ -94,7 +99,7 @@ Quality and consistency issues observed:
 
 - Embedded fallback fonts are packaged and can resolve basic matches.
 - System font path can use a pre-generated fontconfig list, then fallback to `go-findfont`.
-- Google Fonts lookup and caching pipeline is implemented (with API-key requirement for live integration tests).
+- Google Fonts lookup and caching pipeline is implemented with injectable host I/O for deterministic testing.
 - Matching confidence model (`No/Low/High/Perfect`) exists and is used by local/google matching paths.
 
 ## Suggested Direction (Starting Backlog)
@@ -109,8 +114,8 @@ Quality and consistency issues observed:
    - add `README.md` with usage examples, resolver order, config keys, and test modes
 5. Complete TTC story: (NOT A NEAR-TERM GOAL)
    - decide parse/load strategy for `.ttc` and implement at least first readable variant support
-6. Keep integration boundaries explicit:
-   - maintain skip/gate behavior for tests requiring live network/API keys
+6. Add more deterministic tests around resolver state:
+   - ensure singleton/service cache behavior does not leak across tests
 
 ## Practical Project Direction
 

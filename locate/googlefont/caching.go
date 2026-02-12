@@ -3,8 +3,6 @@ package googlefont
 import (
 	"errors"
 	"io"
-	"net/http"
-	"os"
 	"path"
 
 	"github.com/npillmayer/schuko"
@@ -12,13 +10,13 @@ import (
 
 // downloadFile will download a url to a local file (usually located in the
 // user's cache directory).
-func downloadCachedFile(filepath string, url string) error {
-	resp, err := http.Get(url)
+func downloadCachedFile(hostio IO, filepath string, url string) error {
+	resp, err := hostio.HTTPGet(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	out, err := os.Create(filepath)
+	out, err := hostio.Create(filepath)
 	if err != nil {
 		return err
 	}
@@ -43,7 +41,7 @@ func downloadCachedFile(filepath string, url string) error {
 // (with permissions 750).
 //
 // Returns the path to the cache-(sub-)folder or an error.
-func cacheFontDirPath(conf schuko.Configuration, subfolder string) (cacheDir string, err error) {
+func cacheFontDirPath(hostio IO, conf schuko.Configuration, subfolder string) (cacheDir string, err error) {
 	tracer().Debugf("config[%s] = %s", "app-key", conf.GetString("app-key"))
 	if cacheDir = conf.GetString("fonts-cache-dir"); cacheDir != "" {
 		cacheDir = path.Join(cacheDir, subfolder)
@@ -52,14 +50,14 @@ func cacheFontDirPath(conf schuko.Configuration, subfolder string) (cacheDir str
 		if appkey = conf.GetString("app-key"); appkey == "" {
 			return "", errors.New("application key is not set")
 		}
-		if cacheDir, err = os.UserCacheDir(); err != nil {
+		if cacheDir, err = hostio.UserCacheDir(); err != nil {
 			return "", err
 		}
 		cacheDir = path.Join(cacheDir, conf.GetString("app-key"), "fonts", subfolder)
 	}
 	tracer().Debugf("caching resource in %s", cacheDir)
-	if _, err = os.Stat(cacheDir); os.IsNotExist(err) {
-		err = os.MkdirAll(cacheDir, 0750)
+	if _, err = hostio.Stat(cacheDir); err != nil {
+		err = hostio.MkdirAll(cacheDir, 0750)
 	}
 	return
 }

@@ -1,0 +1,54 @@
+{
+  "kind": "webfonts#webfontList",
+  "items": [
+    {
+      "kind": "webfonts#webfont",
+      "family": "Anonymous Pro",
+      "variants": [
+        "regular",
+        "italic",
+        "700",
+        "700italic"
+      ],
+      "subsets": [
+        "latin",
+        "cyrillic"
+      ],
+      "version": "v3",
+      "files": {
+        "regular": "https://fonts.example/anonymouspro/regular.ttf",
+        "italic": "https://fonts.example/anonymouspro/italic.ttf",
+        "700": "https://fonts.example/anonymouspro/700.ttf",
+        "700italic": "https://fonts.example/anonymouspro/700italic.ttf"
+      }
+    },
+    {
+      "kind": "webfonts#webfont",
+      "family": "Antic",
+      "variants": [
+        "regular"
+      ],
+      "subsets": [
+        "latin"
+      ],
+      "version": "v4",
+      "files": {
+        "regular": "https://fonts.example/antic/regular.ttf"
+      }
+    },
+    {
+      "kind": "webfonts#webfont",
+      "family": "Inconsolata",
+      "variants": [
+        "regular"
+      ],
+      "subsets": [
+        "latin"
+      ],
+      "version": "v16",
+      "files": {
+        "regular": "https://fonts.example/inconsolata/regular.ttf"
+      }
+    }
+  ]
+}
