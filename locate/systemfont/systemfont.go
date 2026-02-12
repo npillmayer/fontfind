@@ -19,6 +19,8 @@ func tracer() tracing.Trace {
 	return tracing.Select("tyse.font")
 }
 
+// Use this as an IO parameter if you do not want to provide any and to
+// rely on normal OS behaviour.
 var USE_SYSTEM_IO IO = nil
 
 // Find creates a FontLocator that resolves fonts from local system sources.
