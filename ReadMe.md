@@ -31,8 +31,9 @@ go get github.com/npillmayer/fontfind
 `ScalableFont` is a container for the location of the font's binary data. 
 It is not to be used as a font directly, but rather holds the information how the
 binary font data may be obtained.
-`ScalableFont` methods are:
+`ScalableFont` properties/methods are:
 
+- `Name`
 - `ReadFontData() ([]byte, error)` // clients use this to load font data
 - `Path() string`
 - `SetFS(fs fs.FS, path string)`   // used by the resolver pipeline
