@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -136,6 +137,66 @@ func TestResolveTypefaceUsesRegistryCache(t *testing.T) {
 	}
 }
 
+func TestResolverPipelineUsesProvidedRegistry(t *testing.T) {
+	teardown := gotestingadapter.QuickConfig(t, "resources")
+	defer teardown()
+
+	desc := fontfind.Descriptor{
+		Pattern: "zz-pipeline-registry-probe",
+		Style:   font.StyleNormal,
+		Weight:  font.WeightNormal,
+	}
+	callCount := 0
+	testFS := fstest.MapFS{
+		"probe-pipeline.ttf": &fstest.MapFile{
+			Data: []byte("dummy"),
+		},
+	}
+	resolver := func(_ context.Context, d fontfind.Descriptor) (fontfind.ScalableFont, error) {
+		callCount++
+		sfnt := fontfind.ScalableFont{
+			Name:   "probe-pipeline.ttf",
+			Style:  d.Style,
+			Weight: d.Weight,
+		}
+		sfnt.SetFS(testFS, "probe-pipeline.ttf")
+		return sfnt, nil
+	}
+
+	regA := newMemoryRegistry()
+	pipelineA := locate.NewResolverPipeline(regA, resolver)
+	f, err := pipelineA.Resolve(context.Background(), desc).Font()
+	if err != nil {
+		t.Fatalf("expected resolver success with registry A, got error: %v", err)
+	}
+	if f.Path() != "probe-pipeline.ttf" {
+		t.Fatalf("unexpected resolved path from registry A: %q", f.Path())
+	}
+	f, err = pipelineA.Resolve(context.Background(), desc).Font()
+	if err != nil {
+		t.Fatalf("expected cached resolver success with registry A, got error: %v", err)
+	}
+	if f.Path() != "probe-pipeline.ttf" {
+		t.Fatalf("unexpected cached path from registry A: %q", f.Path())
+	}
+	if callCount != 1 {
+		t.Fatalf("expected resolver call count 1 with shared registry A, got %d", callCount)
+	}
+
+	regB := newMemoryRegistry()
+	pipelineB := locate.NewResolverPipeline(regB, resolver)
+	f, err = pipelineB.Resolve(context.Background(), desc).Font()
+	if err != nil {
+		t.Fatalf("expected resolver success with registry B, got error: %v", err)
+	}
+	if f.Path() != "probe-pipeline.ttf" {
+		t.Fatalf("unexpected resolved path from registry B: %q", f.Path())
+	}
+	if callCount != 2 {
+		t.Fatalf("expected resolver call count 2 with separate registry B, got %d", callCount)
+	}
+}
+
 func TestResolveTypefaceReturnsFallbackOnMiss(t *testing.T) {
 	teardown := gotestingadapter.QuickConfig(t, "resources")
 	defer teardown()
@@ -202,6 +263,38 @@ func TestResolveTypefaceContextDeadlineExceeded(t *testing.T) {
 	if f != fontfind.NullFont {
 		t.Fatalf("expected null font on deadline exceeded")
 	}
+}
+
+type memoryRegistry struct {
+	mu    sync.Mutex
+	fonts map[string]fontfind.ScalableFont
+}
+
+func newMemoryRegistry() *memoryRegistry {
+	return &memoryRegistry{
+		fonts: make(map[string]fontfind.ScalableFont),
+	}
+}
+
+func (r *memoryRegistry) StoreFont(name string, f fontfind.ScalableFont) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.fonts[name]; !ok {
+		r.fonts[name] = f
+	}
+}
+
+func (r *memoryRegistry) GetFont(name string) (fontfind.ScalableFont, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if f, ok := r.fonts[name]; ok {
+		return f, nil
+	}
+	return fontfind.NullFont, errors.New("font not found in memory registry")
+}
+
+func (r *memoryRegistry) FallbackFont() (fontfind.ScalableFont, error) {
+	return fontfind.FallbackFont(), nil
 }
 
 // --- Test IO (+ file system) ------------------------------------------

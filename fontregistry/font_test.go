@@ -62,7 +62,7 @@ func TestRegistryFallbackFont(t *testing.T) {
 	teardown := gotestingadapter.QuickConfig(t, "resources")
 	defer teardown()
 	//
-	fr := NewRegistry()
+	fr := New()
 	f, err := fr.FallbackFont()
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestRegistryFontReturnsFallbackOnMiss(t *testing.T) {
 	teardown := gotestingadapter.QuickConfig(t, "resources")
 	defer teardown()
 	//
-	fr := NewRegistry()
+	fr := New()
 	f, err := fr.GetFont("font-not-in-registry")
 	if err == nil {
 		t.Fatal("expected miss error from registry lookup")

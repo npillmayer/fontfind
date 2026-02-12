@@ -23,13 +23,13 @@ var globalRegistryCreation sync.Once
 // GlobalRegistry returns the application-wide font registry singleton.
 func GlobalRegistry() *Registry {
 	globalRegistryCreation.Do(func() {
-		globalFontRegistry = NewRegistry()
+		globalFontRegistry = New()
 	})
 	return globalFontRegistry
 }
 
-// NewRegistry creates an empty font registry.
-func NewRegistry() *Registry {
+// New creates an empty font registry.
+func New() *Registry {
 	fr := &Registry{
 		fonts: make(map[string]fontfind.ScalableFont),
 	}

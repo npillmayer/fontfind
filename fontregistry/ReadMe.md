@@ -19,6 +19,7 @@ It stores `fontfind.ScalableFont` values under normalized keys and also manages 
 Behavior note:
 
 - `GetFont` returns a non-nil error on cache miss, but still returns fallback when available.
+- Clients may create their own registry instances for isolated caching. Additionally, a global registry is provided for convenience.
 
 ## Example Applications
 

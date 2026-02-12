@@ -27,6 +27,33 @@ type FontPromise interface {
 	FontWithContext(ctx context.Context) (fontfind.ScalableFont, error)
 }
 
+// FontRegistry is the cache contract required by ResolverPipeline.
+type FontRegistry interface {
+	GetFont(string) (fontfind.ScalableFont, error)
+	StoreFont(string, fontfind.ScalableFont)
+	FallbackFont() (fontfind.ScalableFont, error)
+}
+
+// ResolverPipeline orchestrates resolver execution with a configurable registry.
+type ResolverPipeline struct {
+	registry  FontRegistry
+	resolvers []FontLocatorWithContext
+}
+
+// NewResolverPipeline constructs a resolver driver with an optional custom registry.
+// If reg is nil, the global registry singleton is used.
+func NewResolverPipeline(reg FontRegistry, resolvers ...FontLocatorWithContext) ResolverPipeline {
+	if reg == nil {
+		reg = fontregistry.GlobalRegistry()
+	}
+	rs := make([]FontLocatorWithContext, len(resolvers))
+	copy(rs, resolvers)
+	return ResolverPipeline{
+		registry:  reg,
+		resolvers: rs,
+	}
+}
+
 type fontLoader struct {
 	await func(ctx context.Context) (fontfind.ScalableFont, error)
 }
@@ -52,18 +79,27 @@ func ResolveFontLoc(desc fontfind.Descriptor, resolvers ...FontLocator) FontProm
 	for _, r := range resolvers {
 		ctxResolvers = append(ctxResolvers, adaptLocator(r))
 	}
-	return ResolveFontLocWithContext(context.Background(), desc, ctxResolvers...)
+	return NewResolverPipeline(nil, ctxResolvers...).Resolve(context.Background(), desc)
 }
 
 // ResolveFontLocWithContext is the context-aware variant of ResolveFontLoc.
 // The search goroutine and resolver calls receive ctx.
 func ResolveFontLocWithContext(ctx context.Context, desc fontfind.Descriptor, resolvers ...FontLocatorWithContext) FontPromise {
+	return NewResolverPipeline(nil, resolvers...).Resolve(ctx, desc)
+}
+
+// Resolve resolves a font request asynchronously using this pipeline's registry and resolvers.
+func (pipeline ResolverPipeline) Resolve(ctx context.Context, desc fontfind.Descriptor) FontPromise {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	registry := pipeline.registry
+	if registry == nil {
+		registry = fontregistry.GlobalRegistry()
+	}
 	ch := make(chan fontPlusErr)
 	go func(ch chan<- fontPlusErr) {
-		result := searchScalableFont(ctx, desc, resolvers)
+		result := searchScalableFont(ctx, registry, desc, pipeline.resolvers)
 		ch <- result
 		close(ch)
 	}(ch)
@@ -86,13 +122,16 @@ func adaptLocator(r FontLocator) FontLocatorWithContext {
 	}
 }
 
-func searchScalableFont(ctx context.Context, desc fontfind.Descriptor, resolvers []FontLocatorWithContext) (result fontPlusErr) {
+func searchScalableFont(ctx context.Context, registry FontRegistry, desc fontfind.Descriptor, resolvers []FontLocatorWithContext) (result fontPlusErr) {
 	if err := ctx.Err(); err != nil {
 		result.err = err
 		return
 	}
+	if registry == nil {
+		registry = fontregistry.GlobalRegistry()
+	}
 	name := fontregistry.NormalizeFontname(desc.Pattern, desc.Style, desc.Weight)
-	if t, err := fontregistry.GlobalRegistry().GetFont(name); err == nil {
+	if t, err := registry.GetFont(name); err == nil {
 		result.font = t
 		return
 	}
@@ -102,7 +141,7 @@ func searchScalableFont(ctx context.Context, desc fontfind.Descriptor, resolvers
 			return
 		}
 		if f, err := resolver(ctx, desc); err == nil {
-			fontregistry.GlobalRegistry().StoreFont(name, f)
+			registry.StoreFont(name, f)
 			result.font = f
 			return
 		} else if ctxErr := ctx.Err(); ctxErr != nil {
@@ -111,7 +150,7 @@ func searchScalableFont(ctx context.Context, desc fontfind.Descriptor, resolvers
 		}
 	}
 	result.err = notFound(name)
-	if f, err := fontregistry.GlobalRegistry().FallbackFont(); err == nil {
+	if f, err := registry.FallbackFont(); err == nil {
 		result.font = f
 	}
 	return result

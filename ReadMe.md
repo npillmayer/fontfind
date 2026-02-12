@@ -48,6 +48,13 @@ binary font data may be obtained.
 - `Font() (fontfind.ScalableFont, error)`
 - `FontWithContext(ctx) (fontfind.ScalableFont, error)`
 
+Custom pipeline API:
+
+- `type locate.FontRegistry`
+- `type locate.ResolverPipeline`
+- `locate.NewResolverPipeline(reg, resolvers...)`
+- `(ResolverPipeline).Resolve(ctx, desc)`
+
 Resolution behavior:
 
 1. Normalize descriptor to registry key.
@@ -55,6 +62,9 @@ Resolution behavior:
 3. Run resolvers in provided order on cache miss.
 4. Cache successful hits.
 5. Return registry fallback font with an error if all resolvers fail.
+
+By default, `ResolveFontLoc*` uses the global registry singleton.
+If you need per-client cache isolation, build a pipeline with your own registry.
 
 ### Resolver providers
 
@@ -117,7 +127,17 @@ _, err := promise.FontWithContext(ctx)
 fmt.Println("result:", err) // context deadline exceeded
 ```
 
-### 3. Embedded-only/offline deployments
+### 3. Client-owned registry (cache isolation)
+
+```go
+type myRegistry struct { /* implement locate.FontRegistry */ }
+
+reg := &myRegistry{}
+pipeline := locate.NewResolverPipeline(reg, systemResolver, fallbackResolver)
+sf, err := pipeline.Resolve(context.Background(), desc).Font()
+```
+
+### 4. Embedded-only/offline deployments
 
 For fully offline systems, use only the fallback resolver:
 
