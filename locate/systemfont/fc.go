@@ -5,53 +5,55 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
-	"os"
 	"path"
 	"strings"
 	"sync"
 
 	"github.com/npillmayer/fontfind"
-	"github.com/npillmayer/schuko"
-	xfont "golang.org/x/image/font"
+	"golang.org/x/image/font"
 )
-
-func findFontConfigBinary(conf schuko.Configuration) (path string, err error) {
-	path = conf.GetString("fontconfig")
-	if path == "" {
-		tracer().Infof("fontconfig not configured: key 'fontconfig' should point location of 'fc-list' binary")
-		err = errors.New("fontconfig not configured")
-	}
-	return
-}
 
 // findFontListConfig will create a sub-filesystem for the user's configuration directory,
 // suffixed with "<appkey>/fontconfig".
-func findFontListConfigDir(appkey string) (fs.FS, error) {
+func findFontListConfigDir(appkey string, io IO) (fs.FS, error) {
 	if appkey == "" {
 		return nil, errors.New("missing app-key for font list config search")
 	}
-	uconfdir, err := os.UserConfigDir()
+	uconfdir, err := io.UserConfigDir()
 	if err != nil {
 		return nil, fmt.Errorf("cannot open user configuration directory: %w", err)
 	}
 	fontListConfigDir := path.Join(uconfdir, appkey)
-	return fs.Sub(os.DirFS(fontListConfigDir), "fontconfig")
+	return fs.Sub(io.DirFS(fontListConfigDir), "fontconfig")
 }
 
-func findFontList(appkey string) ([]byte, error) {
-	const listfile = "fontconfig.txt"
-	configFS, err := findFontListConfigDir(appkey)
+func findFontList(appkey string, io IO) ([]byte, error) {
+	const listfile = "fontlist.txt"
+	configFS, err := findFontListConfigDir(appkey, io)
 	if err != nil {
 		return nil, err
 	}
-	if readFS, ok := configFS.(fs.ReadFileFS); ok {
-		// Fast file reading within the sandboxed config area
-		return readFS.ReadFile(listfile)
+	if b, err := readFile(configFS, listfile, io); err == nil {
+		return b, nil
+	}
+	// Backward-compat fallback: some callers may keep fontlist.txt directly
+	// under "<appkey>" instead of "<appkey>/fontconfig".
+	uconfdir, err := io.UserConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	legacyFS := io.DirFS(path.Join(uconfdir, appkey))
+	return readFile(legacyFS, listfile, io)
+}
+
+func readFile(fsys fs.FS, name string, io IO) ([]byte, error) {
+	if readFS, ok := fsys.(fs.ReadFileFS); ok {
+		// Fast file reading within the sandboxed config area.
+		return readFS.ReadFile(name)
 	}
 	// else do it the traditional way
-	file, err := configFS.Open(listfile)
+	file, err := fsys.Open(name)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +66,8 @@ var noFonts = []fontfind.FontVariantsLocation{}
 // loadFontConfigList searches the user's configuration directory for a font list file,
 // then reads the file and parses it into a list of font variants.
 // This list of font variants is then stored globally.
-func loadFontConfigList(appkey string) ([]fontfind.FontVariantsLocation, bool) {
-	fclist, err := findFontList(appkey)
+func loadFontConfigList(appkey string, io IO) ([]fontfind.FontVariantsLocation, bool) {
+	fclist, err := findFontList(appkey, io)
 	if err != nil {
 		return noFonts, false
 	}
@@ -126,11 +128,11 @@ var fontConfigDescriptors []fontfind.FontVariantsLocation
 // system (https://www.freedesktop.org/wiki/Software/fontconfig/).
 // However, we need some preparation from the user to de-couple from the
 // fontconfig library.
-func findFontConfigFont(appkey string, pattern string, style xfont.Style, weight xfont.Weight) (
+func findFontConfigFont(appkey string, io IO, pattern string, style font.Style, weight font.Weight) (
 	desc fontfind.FontVariantsLocation, variant string) {
 	//
 	loadFontConfigListTask.Do(func() {
-		_, loadedFontConfigListOK = loadFontConfigList(appkey)
+		_, loadedFontConfigListOK = loadFontConfigList(appkey, io)
 		tracer().Infof("loaded fontconfig list")
 	})
 	if !loadedFontConfigListOK {

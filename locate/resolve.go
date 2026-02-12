@@ -55,7 +55,7 @@ func (loader fontLoader) Typeface() (fontfind.ScalableFont, error) {
 //
 // A prerequisite to looking for Google fonts is a valid API-key (refer to
 // https://developers.google.com/fonts/docs/developer_api). It has to be configured
-// either in the application setup or as an environment variable GOOGLE_API_KEY.
+// either in the application setup or as an environment variable GOOGLE_FONTS_API_KEY.
 // (See also function `FindGoogleFont`).
 //
 // If no suitable font can be found, an application-wide fallback font will be

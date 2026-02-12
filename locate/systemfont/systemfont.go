@@ -2,6 +2,7 @@ package systemfont
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -18,13 +19,41 @@ func tracer() tracing.Trace {
 	return tracing.Select("tyse.font")
 }
 
-func Find(appkey string) locate.FontLocator {
+// Find creates a `FontLocator` to search the system's font folders.
+//
+// appkey: an identifier for the calling application to find config files
+// io: guide I/O, may be nil
+func Find(appkey string, io IO) locate.FontLocator {
+	if io == nil {
+		io = &systemIO{}
+	}
 	return func(descr fontfind.Descriptor) (fontfind.ScalableFont, error) {
 		pattern := descr.Pattern
 		style := descr.Style
 		weight := descr.Weight
-		return FindLocalFont(appkey, pattern, style, weight)
+		return FindLocalFont(appkey, io, pattern, style, weight)
 	}
+}
+
+// IO helps to de-couple I/O from the system IO.
+type IO interface {
+	UserConfigDir() (string, error)
+	DirFS(string) fs.FS
+	ReadAll(io.Reader) ([]byte, error)
+}
+
+type systemIO struct{}
+
+func (s *systemIO) UserConfigDir() (string, error) {
+	return os.UserConfigDir()
+}
+
+func (s *systemIO) DirFS(path string) fs.FS {
+	return os.DirFS(path)
+}
+
+func (s *systemIO) ReadAll(r io.Reader) ([]byte, error) {
+	return io.ReadAll(r)
 }
 
 // FindLocalFont searches for a locally installed font variant.
@@ -34,11 +63,15 @@ func Find(appkey string) locate.FontLocator {
 //
 // If fontconfig is not configured, FindLocalFont will fall back to scanning
 // the system's fonts-folders (OS dependent).
-func FindLocalFont(appkey string, pattern string, style font.Style, weight font.Weight) (fontfind.ScalableFont, error) {
+func FindLocalFont(appkey string, io IO, pattern string, style font.Style, weight font.Weight) (
+	fontfind.ScalableFont, error) {
 	//
-	variants, v := findFontConfigFont(appkey, pattern, style, weight)
+	if io == nil {
+		io = &systemIO{}
+	}
+	variants, _ := findFontConfigFont(appkey, io, pattern, style, weight)
 	if variants.Family != "" {
-		if fsys, path, err := pointSubFS(v); err == nil {
+		if fsys, path, err := wrapDirFS(variants.Path); err == nil {
 			return fontfind.ScalableFont{
 				Name:       pattern,
 				Weight:     weight,
@@ -57,7 +90,7 @@ func FindLocalFont(appkey string, pattern string, style font.Style, weight font.
 	fpath, err := findfont.Find(pattern) // go-findfont lib does not accept style & weight
 	if err == nil && fpath != "" {
 		tracer().Debugf("%s is a system font: %s", pattern, fpath)
-		if fsys, path, err := pointSubFS(fpath); err == nil {
+		if fsys, path, err := wrapDirFS(fpath); err == nil {
 			return fontfind.ScalableFont{
 				Name:       pattern,
 				Weight:     weight,
@@ -71,7 +104,7 @@ func FindLocalFont(appkey string, pattern string, style font.Style, weight font.
 	return fontfind.NullFont, errors.New("no such font")
 }
 
-func pointSubFS(fontpath string) (fs.FS, string, error) {
+func wrapDirFS(fontpath string) (fs.FS, string, error) {
 	d, f := filepath.Split(fontpath)
 	return os.DirFS(d), f, nil
 }

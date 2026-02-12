@@ -1,12 +1,17 @@
 package locate_test
 
 import (
+	"io"
+	"io/fs"
+	"os"
 	"testing"
+	"testing/fstest"
 
 	"github.com/npillmayer/fontfind"
 	"github.com/npillmayer/fontfind/locate"
 	"github.com/npillmayer/fontfind/locate/fallbackfont"
 	"github.com/npillmayer/fontfind/locate/googlefont"
+	"github.com/npillmayer/fontfind/locate/systemfont"
 	"github.com/npillmayer/schuko/schukonf/testconfig"
 	"github.com/npillmayer/schuko/tracing/gotestingadapter"
 	"golang.org/x/image/font"
@@ -34,6 +39,9 @@ func TestLoadPackagedFont(t *testing.T) {
 }
 
 func TestResolveGoogleFont(t *testing.T) {
+	if os.Getenv("GOOGLE_FONTS_API_KEY") == "" {
+		t.Skip("requires GOOGLE_FONTS_API_KEY")
+	}
 	teardown := gotestingadapter.QuickConfig(t, "resources")
 	defer teardown()
 	//
@@ -73,18 +81,47 @@ var fclist = `
 func TestFCFind(t *testing.T) {
 	teardown := gotestingadapter.QuickConfig(t, "resources")
 	defer teardown()
-	//
-	// TODO create test fs.FS
-	conf := testconfig.Conf{
-		"fontconfig": "/usr/local/bin/fc-list",
-		"app-key":    "tyse-test",
+	desc := fontfind.Descriptor{
+		Pattern: "Noto Sans Cham",
+		Style:   font.StyleNormal,
+		Weight:  font.WeightNormal,
 	}
-	_ = conf
-	//
-	// f, v := findFontConfigFont(conf, "new york", font.StyleItalic, font.WeightNormal)
-	// t.Logf("found font = (%s) in variant (%s)", f.Family, v)
-	// t.Logf("font file = %s", f.Path)
-	// if f.Family != "New York" {
-	// 	t.Errorf("expected to find font New York, found %v", f)
-	// }
+	system := systemfont.Find("tyse-test", newIO())
+	loader := locate.ResolveTypeface(desc, system)
+	f, err := loader.Typeface()
+	if err != nil {
+		t.Fatalf("expected fixture-based systemfont hit, got error: %v", err)
+	}
+	if f.FileSystem == nil {
+		t.Fatalf("font's filesystem is nil, cannot access font data")
+	}
+	if f.Path != "NotoSansCham-Regular.ttf" {
+		t.Fatalf("expected path NotoSansCham-Regular.ttf, got %q", f.Path)
+	}
+}
+
+type testIO struct {
+	fsys fs.FS
+}
+
+func newIO() *testIO {
+	testFS := fstest.MapFS{
+		"tyse-test":    &fstest.MapFile{Mode: fs.ModeDir},
+		"fontconfig":   &fstest.MapFile{Mode: fs.ModeDir},
+		"fontlist.txt": &fstest.MapFile{Data: []byte(fclist)},
+	}
+	return &testIO{
+		fsys: testFS,
+	}
+}
+
+func (s *testIO) UserConfigDir() (string, error) {
+	return "home", nil
+}
+func (s *testIO) DirFS(path string) fs.FS {
+	return s.fsys
+}
+
+func (s *testIO) ReadAll(r io.Reader) ([]byte, error) {
+	return []byte(fclist), nil
 }

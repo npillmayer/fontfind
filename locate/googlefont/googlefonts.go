@@ -43,7 +43,7 @@ func setupGoogleFontsDirectory(conf schuko.Configuration) (err error) {
 			if apikey = os.Getenv("GOOGLE_FONTS_API_KEY"); apikey == "" {
 				err = errors.New("Google fonts API key not set")
 				tracer().Errorf(err.Error())
-				googleFontsLoadError = fmt.Errorf(`Google Fonts API-key must be set in global configuration or as GOOGLE_API_KEY in environment;
+				googleFontsLoadError = fmt.Errorf(`Google Fonts API-key must be set in global configuration or as GOOGLE_FONTS_API_KEY in environment;
       please refer to https://developers.google.com/fonts/docs/developer_api`)
 				return
 			}
@@ -110,7 +110,7 @@ func FindGoogleFont(conf schuko.Configuration, pattern string, style font.Style,
 //
 // A prerequisite to looking for Google fonts is a valid API-key (refer to
 // https://developers.google.com/fonts/docs/developer_api). It has to be configured
-// either in the application setup or as an environment variable GOOGLE_API_KEY.
+// either in the application setup or as an environment variable GOOGLE_FONTS_API_KEY.
 func matchGoogleFontInfo(conf schuko.Configuration, pattern string, style font.Style, weight font.Weight) (
 	[]GoogleFontInfo, error) {
 	//

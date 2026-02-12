@@ -18,15 +18,9 @@ import (
 // The API-key has to be set with the GOOGLE_FONTS_API_KEY environment variable.
 
 func checkAPIKeyPresent(t *testing.T) {
+	t.Helper()
 	if os.Getenv("GOOGLE_FONTS_API_KEY") == "" {
-		t.Fatalf(`
-
-ATTENTION
----------
-Tests in this file require a Google Font Service API-key to be present.
-The API-key has to be set with the GOOGLE_API_KEY environment variable.
-
-`)
+		t.Skip("requires GOOGLE_FONTS_API_KEY")
 	}
 }
 
