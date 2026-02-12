@@ -10,7 +10,7 @@ import (
 
 // tracer writes to trace with key 'tyse.font'
 func tracer() tracing.Trace {
-	return tracing.Select("tyse.font")
+	return tracing.Select("fontfind")
 }
 
 // Use this as an IO parameter if you do not want to provide any and to
