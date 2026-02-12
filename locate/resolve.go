@@ -20,8 +20,8 @@ type fontPlusErr struct {
 }
 
 // FontPromise runs font searching asynchronously in the background.
-// A call to `Font()` blocks until font loading is completed, or -- in
-// the case of a context cancellation -- returns an error.
+// Font blocks until completion, and FontWithContext allows waiting with
+// caller-controlled cancellation and deadlines.
 type FontPromise interface {
 	Font() (fontfind.ScalableFont, error)
 	FontWithContext(ctx context.Context) (fontfind.ScalableFont, error)
@@ -39,38 +39,14 @@ func (loader fontLoader) FontWithContext(ctx context.Context) (fontfind.Scalable
 	return loader.await(ctx)
 }
 
-// ResolveFontLoc resolves a scalable font with given properties.
-// It searches for fonts in the following order:
+// ResolveFontLoc resolves a scalable font using the given resolver chain.
 //
-// ▪︎ Fonts packaged with the application binary
+// It first checks the global font registry cache. On a cache miss, resolvers are
+// tried in the given order until one succeeds. A successful resolution is stored
+// in the registry cache. If all resolvers fail, it returns the registry fallback
+// font together with a not-found error.
 //
-// ▪︎ System-fonts
-//
-// ▪︎ Google Fonts service (https://fonts.google.com/)
-//
-// ResolveFontLoc will try to match style and weight requirements closely, but
-// will load a font variant anyway if it matches approximately. If, for example,
-// a system contains a font with weight 300, which would be considered a "light"
-// variant, but no variant with weight 400 (normal), it will load the 300-variant.
-//
-// When looking for sytem-fonts, ResolveFontLoc will use an existing fontconfig
-// (https://www.freedesktop.org/wiki/Software/fontconfig/)
-// installation, if present. fontconfig has to be configured in the global
-// application setup by pointing to the absolute path of the `fc-list` binary.
-// If fontconfig isn't installed or configured, then this step will silently be
-// skipped and a file system scan of the sytem's fonts-folders will be done.
-// (See also function `FindLocalFont`).
-//
-// A prerequisite to looking for Google fonts is a valid API-key (refer to
-// https://developers.google.com/fonts/docs/developer_api). It has to be configured
-// either in the application setup or as an environment variable GOOGLE_FONTS_API_KEY.
-// (See also function `FindGoogleFont`).
-//
-// If no suitable font can be found, an application-wide fallback font will be
-// returned.
-//
-// Fonts are not returned synchronously, but rather as a promise
-// of kind TypefacePromise (async/await).
+// The search runs asynchronously and returns a FontPromise.
 func ResolveFontLoc(desc fontfind.Descriptor, resolvers ...FontLocator) FontPromise {
 	ctxResolvers := make([]FontLocatorWithContext, 0, len(resolvers))
 	for _, r := range resolvers {
@@ -79,7 +55,8 @@ func ResolveFontLoc(desc fontfind.Descriptor, resolvers ...FontLocator) FontProm
 	return ResolveFontLocWithContext(context.Background(), desc, ctxResolvers...)
 }
 
-// ResolveFontLocWithContext resolves a typeface with context-aware cancellation.
+// ResolveFontLocWithContext is the context-aware variant of ResolveFontLoc.
+// The search goroutine and resolver calls receive ctx.
 func ResolveFontLocWithContext(ctx context.Context, desc fontfind.Descriptor, resolvers ...FontLocatorWithContext) FontPromise {
 	if ctx == nil {
 		ctx = context.Background()
@@ -91,7 +68,7 @@ func ResolveFontLocWithContext(ctx context.Context, desc fontfind.Descriptor, re
 		close(ch)
 	}(ch)
 	loader := fontLoader{}
-	// `waitCtx` will be set by the caller using ResolveTypefaceContext(myCtx)
+	// waitCtx is supplied by the caller when awaiting the promise.
 	loader.await = func(waitCtx context.Context) (fontfind.ScalableFont, error) {
 		select {
 		case <-waitCtx.Done():

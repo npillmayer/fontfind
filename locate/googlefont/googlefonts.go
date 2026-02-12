@@ -98,6 +98,8 @@ func (svc *googleService) setupGoogleFontsDirectory(conf schuko.Configuration) (
 	return svc.googleFontsLoadErr
 }
 
+// FindGoogleFont resolves and caches a Google font matching pattern, style, and weight.
+// It returns a ScalableFont whose file system points at the local cache directory.
 func FindGoogleFont(conf schuko.Configuration, pattern string, style font.Style, weight font.Weight) (
 	fontfind.ScalableFont, error) {
 	return defaultGoogleService.findGoogleFont(conf, pattern, style, weight)
@@ -145,10 +147,10 @@ func selectVariant(variants []string, style font.Style, weight font.Weight) (var
 	return
 }
 
-// FindGoogleFont scans the Google Font Service for fonts matching `pattern` and
+// matchGoogleFontInfo scans the Google Font Service for fonts matching pattern and
 // having a given style and weight.
 //
-// Will include all fonts with a match-confidence greater than `font.LowConfidence`.
+// It includes only fonts with a match-confidence greater than fontfind.LowConfidence.
 //
 // A prerequisite to looking for Google fonts is a valid API-key (refer to
 // https://developers.google.com/fonts/docs/developer_api). It has to be configured
@@ -227,7 +229,7 @@ func (svc *googleService) cacheGoogleFont(conf schuko.Configuration, fi GoogleFo
 // service, with font-family names matching a given pattern.
 // Output goes into the trace file with log-level info.
 //
-// If not aleady done, the list of available fonts will be downloaded from Google.
+// If not already done, the list of available fonts will be downloaded from Google.
 func ListGoogleFonts(conf schuko.Configuration, pattern string) {
 	defaultGoogleService.listGoogleFonts(conf, pattern)
 }

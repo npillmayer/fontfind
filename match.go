@@ -9,11 +9,11 @@ import (
 	"golang.org/x/image/font"
 )
 
-// Descriptor represents all the known variants of a font.
+// FontVariantsLocation describes known variants and location info for a font family.
 type FontVariantsLocation struct {
 	Family   string   `json:"family"`
 	Variants []string `json:"variants"`
-	Path     string   // only used if just a single variant
+	Path     string   // used for local font sources
 }
 
 // Matches returns true if a font's filename contains pattern and indicators
@@ -43,7 +43,7 @@ const (
 	PerfectConfidence MatchConfidence = 4
 )
 
-// ClosestMatch scans a list of font desriptors and returns the closest match
+// ClosestMatch scans a list of font descriptors and returns the closest match
 // for a given set of parameters.
 //
 // If no variant matches, returns `NoConfidence`.
@@ -76,7 +76,7 @@ func ClosestMatch(fdescs []FontVariantsLocation, pattern string, style font.Styl
 
 // ---------------------------------------------------------------------------
 
-// GuessStyleAndWeight trys to guess a font's style and weight from the
+// GuessStyleAndWeight tries to guess a font's style and weight from the
 // font's file name.
 func GuessStyleAndWeight(fontfilename string) (font.Style, font.Weight) {
 	fontfilename = path.Base(fontfilename)
@@ -108,7 +108,7 @@ func GuessStyleAndWeight(fontfilename string) (font.Style, font.Weight) {
 	return style, weight
 }
 
-// MatchStyle trys to match a font-variant to a given style.
+// MatchStyle tries to match a font-variant to a given style.
 func MatchStyle(variantName string, style font.Style) MatchConfidence {
 	variantName = strings.ToLower(variantName)
 	switch style {
@@ -140,7 +140,7 @@ func MatchStyle(variantName string, style font.Style) MatchConfidence {
 	return NoConfidence
 }
 
-// MatchWeight trys to match a font-variant to a given weight.
+// MatchWeight tries to match a font-variant to a given weight.
 func MatchWeight(variantName string, weight font.Weight) MatchConfidence {
 	/* from https://pkg.go.dev/golang.org/x/image/font
 	WeightThin       Weight = -3 // CSS font-weight value 100.

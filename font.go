@@ -1,5 +1,5 @@
 /*
-Package fontlonad is for typeface and font finding and loading.
+Package fontfind is for typeface and font finding and loading.
 
 There is a certain confusion with the nomenclature of typesetting. We will
 stick to the following definitions:
@@ -67,12 +67,14 @@ const (
 	WeightBold     = font.WeightBold
 )
 
+// Descriptor describes a requested scalable font by family pattern, style, and weight.
 type Descriptor struct {
 	Pattern string
 	Style   font.Style
 	Weight  font.Weight
 }
 
+// ScalableFont describes a concrete font variant and where to load it from.
 type ScalableFont struct {
 	Name       string
 	Style      font.Style
@@ -81,15 +83,18 @@ type ScalableFont struct {
 	path       string
 }
 
+// SetFS sets file-system and path for loading font bytes.
 func (f *ScalableFont) SetFS(fs fs.FS, path string) {
 	f.fileSystem = fs
 	f.path = path
 }
 
+// Path returns the path of the font file inside the configured file-system.
 func (f *ScalableFont) Path() string {
 	return f.path
 }
 
+// ReadFontData reads the raw bytes of this scalable font from its configured file-system.
 func (f *ScalableFont) ReadFontData() ([]byte, error) {
 	if f.fileSystem == nil {
 		return nil, errors.New("no file system to read from")
@@ -100,6 +105,7 @@ func (f *ScalableFont) ReadFontData() ([]byte, error) {
 	return fs.ReadFile(f.fileSystem, f.path)
 }
 
+// NullFont is the zero-value marker used when no scalable font could be resolved.
 var NullFont = ScalableFont{}
 
 //go:embed locate/fallbackfont/packaged/Go-Regular.otf

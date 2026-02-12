@@ -20,6 +20,7 @@ var packaged embed.FS
 
 const defaultFallbackFilename = "Go-Regular.otf"
 
+// Find creates a locator that resolves fonts from the embedded fallback set.
 func Find() locate.FontLocator {
 	return func(descr fontfind.Descriptor) (fontfind.ScalableFont, error) {
 		pattern := descr.Pattern
@@ -45,6 +46,8 @@ func Default() (fontfind.ScalableFont, error) {
 	return sfnt, nil
 }
 
+// FindFallbackFont looks up a matching font in embedded fallback resources.
+// If no match exists, it returns the first available packaged font.
 func FindFallbackFont(pattern string, style font.Style, weight font.Weight) (fontfind.ScalableFont, error) {
 	fonts, _ := packaged.ReadDir("packaged")
 	var fname string // path to embedded font, if any

@@ -10,7 +10,7 @@ import (
 	xfont "golang.org/x/image/font"
 )
 
-// Registry is a type for holding information about loaded fonts.
+// Registry caches resolved scalable fonts by normalized name.
 type Registry struct {
 	sync.Mutex
 	fonts map[string]fontfind.ScalableFont
@@ -20,8 +20,7 @@ var globalFontRegistry *Registry
 
 var globalRegistryCreation sync.Once
 
-// GlobalRegistry is an application-wide singleton to hold information about
-// loaded fonts and typecases.
+// GlobalRegistry returns the application-wide font registry singleton.
 func GlobalRegistry() *Registry {
 	globalRegistryCreation.Do(func() {
 		globalFontRegistry = NewRegistry()
@@ -29,6 +28,7 @@ func GlobalRegistry() *Registry {
 	return globalFontRegistry
 }
 
+// NewRegistry creates an empty font registry.
 func NewRegistry() *Registry {
 	fr := &Registry{
 		fonts: make(map[string]fontfind.ScalableFont),
@@ -57,12 +57,10 @@ func (fr *Registry) StoreFont(normalizedName string, f fontfind.ScalableFont) {
 	}
 }
 
-// GetFont returns a font with a given font, style and weight.
-// If a suitable font has already been cached, GetFont will return the cached
-// scalable font.
+// GetFont returns a cached font by normalized name.
 //
-// If no font can be produced, GetFont will derive one from a system-wide
-// fallback font and return it, together with an error message.
+// On a cache miss, GetFont returns the registry fallback font together with
+// a non-nil error describing the miss.
 func (fr *Registry) GetFont(normalizedName string) (fontfind.ScalableFont, error) {
 	//
 	tracer().Debugf("registry searches for font %s", normalizedName)
@@ -104,7 +102,7 @@ func (fr *Registry) FallbackFont() (fontfind.ScalableFont, error) {
 	return f, nil
 }
 
-// LogFontList is a helper function to dump the list of the font known to a
+// LogFontList is a helper function to dump the list of fonts known to a
 // registry to the tracer (log-level Info).
 func (fr *Registry) LogFontList(tracer tracing.Trace) {
 	level := tracer.GetTraceLevel()
@@ -117,6 +115,7 @@ func (fr *Registry) LogFontList(tracer tracing.Trace) {
 	tracer.SetTraceLevel(level)
 }
 
+// NormalizeFontname returns a normalized cache key for a font descriptor.
 func NormalizeFontname(fname string, style xfont.Style, weight xfont.Weight) string {
 	fname = strings.TrimSpace(fname)
 	fname = strings.ReplaceAll(fname, " ", "_")

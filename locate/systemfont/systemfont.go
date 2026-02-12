@@ -19,10 +19,10 @@ func tracer() tracing.Trace {
 	return tracing.Select("tyse.font")
 }
 
-// Find creates a `FontLocator` to search the system's font folders.
+// Find creates a FontLocator that resolves fonts from local system sources.
 //
-// appkey: an identifier for the calling application to find config files
-// io: guide I/O, may be nil
+// appkey identifies the caller's config area used for fontconfig list lookup.
+// io customizes host I/O and may be nil.
 func Find(appkey string, io IO) locate.FontLocator {
 	if io == nil {
 		io = &systemIO{}
@@ -35,7 +35,7 @@ func Find(appkey string, io IO) locate.FontLocator {
 	}
 }
 
-// IO helps to de-couple I/O from the system IO.
+// IO decouples font lookup from OS I/O for testability.
 type IO interface {
 	UserConfigDir() (string, error)
 	DirFS(string) fs.FS
@@ -58,11 +58,11 @@ func (s *systemIO) ReadAll(r io.Reader) ([]byte, error) {
 
 // FindLocalFont searches for a locally installed font variant.
 //
-// If present and configured, FindLocalFont will be using the fontconfig
+// If present and configured, FindLocalFont uses the fontconfig
 // system (https://www.freedesktop.org/wiki/Software/fontconfig/).
 //
 // If fontconfig is not configured, FindLocalFont will fall back to scanning
-// the system's fonts-folders (OS dependent).
+// system font folders (OS dependent).
 func FindLocalFont(appkey string, io IO, pattern string, style font.Style, weight font.Weight) (
 	fontfind.ScalableFont, error) {
 	//
