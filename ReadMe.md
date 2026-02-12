@@ -56,7 +56,7 @@ Resolution behavior:
 
 - `locate/fallbackfont`: embedded packaged fonts (`Find`, `Default`)
 - `locate/systemfont`: local/system lookup (`Find`, `FindLocalFont`)
-- `locate/googlefont`: Google Fonts lookup + cache (`Find`, `FindWithIO`, `FindGoogleFont`)
+- `locate/googlefont`: Google Fonts lookup + cache (`Find`, `FindGoogleFont`)
 
 See the documentation in the sub-packages for more details.
 
@@ -79,13 +79,13 @@ fallback := fallbackfont.Find()
 
 promise := locate.ResolveFontLoc(desc, system, fallback)
 // …
-sf, err := promise.Font()
+font, err := promise.Font()
 if err != nil {
-	// err may be non-nil while sf is still a usable fallback font
+	// err may be non-nil while font is still a usable fallback font
 	log.Printf("font lookup degraded: %v", err)
 }
 
-data, err := sf.ReadFontData()
+data, err := font.ReadFontData()
 if err != nil {
 	log.Fatal(err)
 }
@@ -124,7 +124,7 @@ desc := fontfind.Descriptor{
 	Weight: font.WeightNormal
 }
 promise := locate.ResolveFontLoc(desc, fallbackfont.Find())
-sf, err := promise.Font()
+font, err := promise.Font()
 ```
 
 This will return a packaged
