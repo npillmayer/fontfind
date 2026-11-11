@@ -53,8 +53,21 @@ func TestNormalizeFont(t *testing.T) {
 	defer teardown()
 	//
 	n := NormalizeFontname("Clarendon", font.StyleItalic, font.WeightBold)
-	if n != "clarendon-italic-bold" {
-		t.Errorf("expected different normalized name for clarendon")
+	if n == "fallback" || n != NormalizeFontname("Clarendon", font.StyleItalic, font.WeightBold) {
+		t.Errorf("cache key must be deterministic and distinct from the fallback key")
+	}
+	for _, d := range []fontfind.Descriptor{
+		{Pattern: "Clarendon", Style: font.StyleOblique, Weight: font.WeightBold},
+		{Pattern: "Clarendon", Style: font.StyleItalic, Weight: font.WeightSemiBold},
+		{Pattern: "Clarendon.ttf", Style: font.StyleItalic, Weight: font.WeightBold},
+		{Pattern: "clarendon", Style: font.StyleItalic, Weight: font.WeightBold},
+	} {
+		if n == NormalizeFontname(d.Pattern, d.Style, d.Weight) {
+			t.Errorf("distinct descriptor shares key: %+v", d)
+		}
+	}
+	if NormalizeFontname("fallback", font.StyleNormal, font.WeightNormal) == fallbackFontKey {
+		t.Error("family name collides with reserved fallback entry")
 	}
 }
 

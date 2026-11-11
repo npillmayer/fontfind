@@ -2,7 +2,6 @@ package fontregistry
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/npillmayer/fontfind"
@@ -115,23 +114,12 @@ func (fr *Registry) LogFontList(tracer tracing.Trace) {
 	tracer.SetTraceLevel(level)
 }
 
-// NormalizeFontname returns a normalized cache key for a font descriptor.
+// NormalizeFontname returns an opaque cache key for an exact request descriptor.
+// It preserves the pattern verbatim and the numeric style and weight. Providers
+// may interpret patterns differently, so case, whitespace, punctuation, and font
+// extensions must not be normalized here. The key cannot equal the reserved
+// "fallback" key. Callers should generate keys with this function rather than
+// depend on their representation; keys from the former lossy format must be rebuilt.
 func NormalizeFontname(fname string, style xfont.Style, weight xfont.Weight) string {
-	fname = strings.TrimSpace(fname)
-	fname = strings.ReplaceAll(fname, " ", "_")
-	if dot := strings.LastIndex(fname, "."); dot > 0 {
-		fname = fname[:dot]
-	}
-	fname = strings.ToLower(fname)
-	switch style {
-	case xfont.StyleItalic, xfont.StyleOblique:
-		fname += "-italic"
-	}
-	switch weight {
-	case xfont.WeightLight, xfont.WeightExtraLight:
-		fname += "-light"
-	case xfont.WeightBold, xfont.WeightExtraBold, xfont.WeightSemiBold:
-		fname += "-bold"
-	}
-	return fname
+	return fmt.Sprintf("font-request:v1:%q:%d:%d", fname, style, weight)
 }

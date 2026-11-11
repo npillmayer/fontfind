@@ -19,6 +19,17 @@ It stores `fontfind.ScalableFont` values under normalized keys and also manages 
 Behavior note:
 
 - `GetFont` returns a non-nil error on cache miss, but still returns fallback when available.
+
+Cache keys preserve the exact request pattern, style, and weight. Case,
+whitespace, dots, and extensions remain significant because custom providers
+may distinguish them. Treat `NormalizeFontname` results as opaque: its former
+lossy keys must be regenerated, including keys in any client-persisted cache.
+The reserved `"fallback"` entry is separate from a request for a family with
+that name.
+
+A registry belongs to a resolution policy. Create a fresh registry when provider
+order, provider configuration, or fallback policy changes. Sharing one registry
+across different policies allows an earlier cache hit to bypass the new policy.
 - Clients may create their own registry instances for isolated caching. Additionally, a global registry is provided for convenience.
 
 ## Example Applications

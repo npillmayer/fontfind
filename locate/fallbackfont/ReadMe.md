@@ -7,8 +7,14 @@ these are the
 [Go fonts](https://go.dev/blog/go-fonts),
 packaged and embedded (in OTF format).
 
-It is also the deterministic last-resort provider and contains the default packaged fallback
-(`Go-Regular.otf`).
+It also contains the default packaged fallback (`Go-Regular.otf`).
+`Find` and `FindFallbackFont` search for a matching filename, style, and weight;
+they return an error when no match exists. This lets the pipeline continue to
+later providers. If all providers miss, the pipeline returns its registry's
+fallback together with a lookup error, without caching it as a successful match.
+
+Use `Default()` or `fontfind.FallbackFont()` to request the packaged default
+directly, without a name search.
 
 ## API
 

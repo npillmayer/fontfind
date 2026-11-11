@@ -45,6 +45,9 @@ type ResolverPipeline struct {
 
 // NewResolverPipeline constructs a resolver driver with an optional custom registry.
 // If reg is nil, the global registry singleton is used.
+// Cache hits bypass resolvers. Use a fresh registry when changing provider order,
+// provider configuration, or fallback policy; registry keys identify requests,
+// not the policy used to resolve them. Only share a registry across compatible policies.
 func NewResolverPipeline(reg FontRegistry, resolvers ...FontLocatorWithContext) ResolverPipeline {
 	if reg == nil {
 		reg = fontregistry.GlobalRegistry()

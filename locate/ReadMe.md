@@ -37,6 +37,13 @@ Resolution flow:
 
 `ResolveFontLoc*` uses the global registry. Use `ResolverPipeline` when clients need their own registry instance.
 
+Reuse a registry only while the resolution policy remains compatible: cache hits
+bypass the provider chain. For a change of provider order, provider configuration,
+or fallback policy, construct a new `fontregistry.New()` and pass it to the new
+pipeline. Request keys preserve exact patterns and numeric style/weight, but do
+not encode policy identity. The global convenience functions share this same
+cache limitation.
+
 ## Example Applications
 
 ### 1. Resolve through a resolver chain
