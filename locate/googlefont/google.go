@@ -19,6 +19,9 @@ var USE_SYSTEM_IO IO = nil
 
 // Find creates a FontLocator for Google Fonts using default host I/O.
 // hostio may be nil (USE_SYSTEM_IO) to use the OS-backed default implementation.
+// Each locator initializes its own directory once, retaining initialization
+// errors too. Create a new locator to retry or change configuration. Do not mutate
+// conf during use; custom IO must support concurrent calls if the locator is shared.
 func Find(conf schuko.Configuration, hostio IO) locate.FontLocator {
 	svc := newGoogleService(hostio)
 	return func(descr fontfind.Descriptor) (fontfind.ScalableFont, error) {

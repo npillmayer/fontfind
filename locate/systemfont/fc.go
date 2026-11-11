@@ -53,16 +53,15 @@ func readFile(fsys fs.FS, name string, io IO) ([]byte, error) {
 	return io.ReadAll(file)
 }
 
-var noFonts = []fontfind.FontVariantsLocation{}
-
 // loadFontConfigList searches the user's configuration directory for a font list file,
 // then reads the file and parses it into a list of font variants.
-// This list of font variants is then stored globally.
+// The returned list belongs to the calling locator.
 func loadFontConfigList(appkey string, io IO) ([]fontfind.FontVariantsLocation, bool) {
 	fclist, err := findFontList(appkey, io)
 	if err != nil {
-		return noFonts, false
+		return nil, false
 	}
+	var fontConfigDescriptors []fontfind.FontVariantsLocation
 	r := bytes.NewReader(fclist)
 	scanner := bufio.NewScanner(r)
 	ttc := 0
@@ -112,26 +111,28 @@ func loadFontConfigList(appkey string, io IO) ([]fontfind.FontVariantsLocation, 
 	return fontConfigDescriptors, true
 }
 
-var loadFontConfigListTask sync.Once
-var loadedFontConfigListOK bool
-var fontConfigDescriptors []fontfind.FontVariantsLocation
+type systemService struct {
+	loadFontConfigListTask sync.Once
+	loadedFontConfigListOK bool
+	fontConfigDescriptors  []fontfind.FontVariantsLocation
+}
 
 // findFontConfigFont searches for a locally installed font variant using the fontconfig
 // system (https://www.freedesktop.org/wiki/Software/fontconfig/).
 // However, we need some preparation from the user to de-couple from the
 // fontconfig library.
-func findFontConfigFont(appkey string, io IO, pattern string, style font.Style, weight font.Weight) (
+func (svc *systemService) findFontConfigFont(appkey string, io IO, pattern string, style font.Style, weight font.Weight) (
 	desc fontfind.FontVariantsLocation, variant string) {
 	//
-	loadFontConfigListTask.Do(func() {
-		_, loadedFontConfigListOK = loadFontConfigList(appkey, io)
+	svc.loadFontConfigListTask.Do(func() {
+		svc.fontConfigDescriptors, svc.loadedFontConfigListOK = loadFontConfigList(appkey, io)
 		tracer().Infof("loaded fontconfig list")
 	})
-	if !loadedFontConfigListOK {
+	if !svc.loadedFontConfigListOK {
 		return
 	}
 	var confidence fontfind.MatchConfidence
-	desc, variant, confidence = fontfind.ClosestMatch(fontConfigDescriptors, pattern, style, weight)
+	desc, variant, confidence = fontfind.ClosestMatch(svc.fontConfigDescriptors, pattern, style, weight)
 	tracer().Debugf("closest fontconfig match confidence for %s|%s= %d", desc.Family, variant, confidence)
 	if confidence > fontfind.LowConfidence {
 		return

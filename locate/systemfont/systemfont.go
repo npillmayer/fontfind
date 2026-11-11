@@ -27,15 +27,18 @@ var USE_SYSTEM_IO IO = nil
 //
 // appkey identifies the caller's config area used for fontconfig list lookup.
 // io customizes host I/O and may be nil.
+// Each locator initializes its own font list once. Create a new locator to
+// reload it. Custom IO must support concurrent calls if the locator is shared.
 func Find(appkey string, io IO) locate.FontLocator {
 	if io == nil {
 		io = &systemIO{}
 	}
+	svc := &systemService{}
 	return func(descr fontfind.Descriptor) (fontfind.ScalableFont, error) {
 		pattern := descr.Pattern
 		style := descr.Style
 		weight := descr.Weight
-		return FindLocalFont(appkey, io, pattern, style, weight)
+		return svc.findLocalFont(appkey, io, pattern, style, weight)
 	}
 }
 
@@ -67,13 +70,18 @@ func (s *systemIO) ReadAll(r io.Reader) ([]byte, error) {
 //
 // If fontconfig is not configured, FindLocalFont will fall back to scanning
 // system font folders (OS dependent).
+// Each call loads its own font list; reuse Find's locator to cache initialization.
 func FindLocalFont(appkey string, io IO, pattern string, style font.Style, weight font.Weight) (
 	fontfind.ScalableFont, error) {
+	return (&systemService{}).findLocalFont(appkey, io, pattern, style, weight)
+}
+
+func (svc *systemService) findLocalFont(appkey string, io IO, pattern string, style font.Style, weight font.Weight) (fontfind.ScalableFont, error) {
 	//
 	if io == nil {
 		io = &systemIO{}
 	}
-	variants, _ := findFontConfigFont(appkey, io, pattern, style, weight)
+	variants, _ := svc.findFontConfigFont(appkey, io, pattern, style, weight)
 	if variants.Family != "" {
 		if fsys, path, err := wrapDirFS(variants.Path); err == nil {
 			sfnt := fontfind.ScalableFont{
@@ -86,7 +94,7 @@ func FindLocalFont(appkey string, io IO, pattern string, style font.Style, weigh
 		}
 		return fontfind.NullFont, errors.New("path error with fontconfig file path")
 	}
-	if loadedFontConfigListOK { // fontconfig is active, but didn't find a font
+	if svc.loadedFontConfigListOK { // fontconfig is active, but didn't find a font
 		// therefore don't do a file system scan
 		return fontfind.NullFont, errors.New("no such font")
 	}

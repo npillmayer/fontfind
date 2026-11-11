@@ -13,7 +13,6 @@ import (
 
 	"github.com/npillmayer/fontfind"
 	"github.com/npillmayer/schuko"
-	"github.com/npillmayer/schuko/tracing"
 	font "golang.org/x/image/font"
 )
 
@@ -49,12 +48,6 @@ func newGoogleService(hostio IO) *googleService {
 		io:  hostio,
 		api: defaultGoogleFontsAPI,
 	}
-}
-
-var defaultGoogleService = newGoogleService(nil)
-
-func setupGoogleFontsDirectory(conf schuko.Configuration) error {
-	return defaultGoogleService.setupGoogleFontsDirectory(conf)
 }
 
 func (svc *googleService) setupGoogleFontsDirectory(conf schuko.Configuration) (err error) {
@@ -100,9 +93,10 @@ func (svc *googleService) setupGoogleFontsDirectory(conf schuko.Configuration) (
 
 // FindGoogleFont resolves and caches a Google font matching pattern, style, and weight.
 // It returns a ScalableFont whose file system points at the local cache directory.
+// Each call loads its own directory. Reuse Find's locator to cache initialization.
 func FindGoogleFont(conf schuko.Configuration, pattern string, style font.Style, weight font.Weight) (
 	fontfind.ScalableFont, error) {
-	return defaultGoogleService.findGoogleFont(conf, pattern, style, weight)
+	return newGoogleService(nil).findGoogleFont(conf, pattern, style, weight)
 }
 
 func (svc *googleService) findGoogleFont(conf schuko.Configuration, pattern string, style font.Style, weight font.Weight) (
@@ -155,11 +149,6 @@ func selectVariant(variants []string, style font.Style, weight font.Weight) (var
 // A prerequisite to looking for Google fonts is a valid API-key (refer to
 // https://developers.google.com/fonts/docs/developer_api). It has to be configured
 // either in the application setup or as an environment variable GOOGLE_FONTS_API_KEY.
-func matchGoogleFontInfo(conf schuko.Configuration, pattern string, style font.Style, weight font.Weight) (
-	[]GoogleFontInfo, error) {
-	return defaultGoogleService.matchGoogleFontInfo(conf, pattern, style, weight)
-}
-
 func (svc *googleService) matchGoogleFontInfo(conf schuko.Configuration, pattern string, style font.Style, weight font.Weight) (
 	[]GoogleFontInfo, error) {
 	//
@@ -229,20 +218,17 @@ func (svc *googleService) cacheGoogleFont(conf schuko.Configuration, fi GoogleFo
 // service, with font-family names matching a given pattern.
 // Output goes into the trace file with log-level info.
 //
-// If not already done, the list of available fonts will be downloaded from Google.
+// Each call downloads its own directory and respects the configured trace level.
 func ListGoogleFonts(conf schuko.Configuration, pattern string) {
-	defaultGoogleService.listGoogleFonts(conf, pattern)
+	newGoogleService(nil).listGoogleFonts(conf, pattern)
 }
 
 func (svc *googleService) listGoogleFonts(conf schuko.Configuration, pattern string) {
-	level := tracer().GetTraceLevel()
-	tracer().SetTraceLevel(tracing.LevelInfo)
 	if err := svc.setupGoogleFontsDirectory(conf); err != nil {
 		tracer().Errorf("unable to list Google fonts: %v", err)
 	} else {
 		listGoogleFonts(svc.googleFontsDir, pattern)
 	}
-	tracer().SetTraceLevel(level)
 }
 
 func listGoogleFonts(list googleFontsList, pattern string) {

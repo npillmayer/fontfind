@@ -12,6 +12,12 @@ See package os:
 
 ## API
 
+Each `Find` locator owns its font-list cache and initializes it once. Independent
+locators do not share initialization results or failures. Reuse a locator for
+repeated requests; create a new one to reload configuration. `FindLocalFont`
+loads independently on each call. Shared locators require concurrency-safe custom
+I/O. System-directory scanning and font-file access still use the host filesystem.
+
 - `type IO` (injectable host I/O for tests)
 - `Find(appkey, io) locate.FontLocator`
 - `FindLocalFont(appkey, io, pattern, style, weight) (fontfind.ScalableFont, error)`

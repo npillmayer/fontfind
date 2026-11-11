@@ -18,6 +18,10 @@ It stores `fontfind.ScalableFont` values under normalized keys and also manages 
 
 Behavior note:
 
+`LogFontList` logs a snapshot taken under the registry lock, releasing the lock
+before invoking the logger. It prints actual font paths and respects the logger's
+configured level. A logger shared between goroutines must support concurrent use.
+
 - `GetFont` returns a non-nil error on cache miss, but still returns fallback when available.
 
 Cache keys preserve the exact request pattern, style, and weight. Case,

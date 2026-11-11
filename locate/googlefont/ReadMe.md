@@ -6,6 +6,14 @@
 
 ## API
 
+Each `Find` locator owns its directory cache, including initialization errors.
+Reuse it for repeated requests and create a new locator to retry initialization
+or change configuration. Keep configuration immutable during use and supply
+concurrency-safe custom I/O when sharing a locator. Direct `FindGoogleFont` and
+`ListGoogleFonts` calls initialize independently each time. Disk cache paths can
+still be shared: separate locators or registries do not isolate downloaded files.
+`ListGoogleFonts` respects the configured trace level.
+
 - `type IO` (env/http/fs abstraction)
 - `Find(conf, io) locate.FontLocator`
 - `FindGoogleFont(conf, pattern, style, weight) (fontfind.ScalableFont, error)`

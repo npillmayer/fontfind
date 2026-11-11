@@ -101,17 +101,21 @@ func (fr *Registry) FallbackFont() (fontfind.ScalableFont, error) {
 	return f, nil
 }
 
-// LogFontList is a helper function to dump the list of fonts known to a
-// registry to the tracer (log-level Info).
+// LogFontList logs a snapshot of the registry at Info level, respecting the
+// supplied tracer's configured level. The tracer must support concurrent use
+// if callers share it between goroutines.
 func (fr *Registry) LogFontList(tracer tracing.Trace) {
-	level := tracer.GetTraceLevel()
-	tracer.SetTraceLevel(tracing.LevelInfo)
-	tracer.Infof("--- registered fonts ---")
+	fr.Lock()
+	fonts := make(map[string]fontfind.ScalableFont, len(fr.fonts))
 	for k, v := range fr.fonts {
-		tracer.Infof("typeface [%s] = %s @ %v", k, v.Name, v.Path)
+		fonts[k] = v
+	}
+	fr.Unlock()
+	tracer.Infof("--- registered fonts ---")
+	for k, v := range fonts {
+		tracer.Infof("typeface [%s] = %s @ %s", k, v.Name, v.Path())
 	}
 	tracer.Infof("------------------------")
-	tracer.SetTraceLevel(level)
 }
 
 // NormalizeFontname returns an opaque cache key for an exact request descriptor.
