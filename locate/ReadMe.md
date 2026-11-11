@@ -6,6 +6,16 @@
 
 It exposes async resolution primitives and a context-aware variant for cancellation/deadline control.
 
+A promise retains one search result: repeated and concurrent awaits return the
+same font and error. Completion does not require a waiter. `FontWithContext(ctx)`
+cancels only that wait; other waiters and the search can continue. An observed
+completed result takes precedence over wait cancellation, and a nil wait context
+means `context.Background()`.
+
+The context passed to `Resolve` or `ResolveFontLocWithContext` controls the search.
+Resolvers must honor that context to interrupt work; adapting a legacy locator
+does not make its I/O cancellable.
+
 ## API
 
 - `type FontLocator`

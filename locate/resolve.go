@@ -13,17 +13,20 @@ func notFound(res string) error {
 	return fmt.Errorf("font not found: %v", res)
 }
 
-// fontPlusErr is a helper struct to exchange through channels.
+// fontPlusErr holds the completed search result.
 type fontPlusErr struct {
 	font fontfind.ScalableFont
 	err  error
 }
 
-// FontPromise runs font searching asynchronously in the background.
-// Font blocks until completion, and FontWithContext allows waiting with
-// caller-controlled cancellation and deadlines.
+// FontPromise represents one asynchronous search. Repeated and concurrent awaits
+// return the same completed font and error.
 type FontPromise interface {
+	// Font waits for search completion.
 	Font() (fontfind.ScalableFont, error)
+	// FontWithContext cancels only this wait, returning NullFont and ctx.Err().
+	// It does not cancel the search or other waiters. An observed completed result
+	// takes precedence over wait cancellation. A nil ctx means context.Background().
 	FontWithContext(ctx context.Context) (fontfind.ScalableFont, error)
 }
 
@@ -55,15 +58,35 @@ func NewResolverPipeline(reg FontRegistry, resolvers ...FontLocatorWithContext) 
 }
 
 type fontLoader struct {
-	await func(ctx context.Context) (fontfind.ScalableFont, error)
+	done   chan struct{}
+	result fontPlusErr
 }
 
-func (loader fontLoader) Font() (fontfind.ScalableFont, error) {
+func (loader *fontLoader) Font() (fontfind.ScalableFont, error) {
 	return loader.FontWithContext(context.Background())
 }
 
-func (loader fontLoader) FontWithContext(ctx context.Context) (fontfind.ScalableFont, error) {
-	return loader.await(ctx)
+func (loader *fontLoader) FontWithContext(ctx context.Context) (fontfind.ScalableFont, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	select {
+	case <-loader.done:
+		return loader.result.font, loader.result.err
+	default:
+	}
+	select {
+	case <-loader.done:
+		return loader.result.font, loader.result.err
+	case <-ctx.Done():
+		// Completion may have become ready alongside cancellation.
+		select {
+		case <-loader.done:
+			return loader.result.font, loader.result.err
+		default:
+			return fontfind.NullFont, ctx.Err()
+		}
+	}
 }
 
 // ResolveFontLoc resolves a scalable font using the given resolver chain.
@@ -89,6 +112,9 @@ func ResolveFontLocWithContext(ctx context.Context, desc fontfind.Descriptor, re
 }
 
 // Resolve resolves a font request asynchronously using this pipeline's registry and resolvers.
+// ctx controls the search; nil means context.Background(). Cancellation is
+// cooperative: resolvers must honor ctx to interrupt their work. Legacy locators
+// adapted by ResolveFontLoc do not gain cancellable I/O through adaptation.
 func (pipeline ResolverPipeline) Resolve(ctx context.Context, desc fontfind.Descriptor) FontPromise {
 	if ctx == nil {
 		ctx = context.Background()
@@ -97,22 +123,12 @@ func (pipeline ResolverPipeline) Resolve(ctx context.Context, desc fontfind.Desc
 	if registry == nil {
 		registry = fontregistry.GlobalRegistry()
 	}
-	ch := make(chan fontPlusErr)
-	go func(ch chan<- fontPlusErr) {
-		result := searchScalableFont(ctx, registry, desc, pipeline.resolvers)
-		ch <- result
-		close(ch)
-	}(ch)
-	loader := fontLoader{}
-	// waitCtx is supplied by the caller when awaiting the promise.
-	loader.await = func(waitCtx context.Context) (fontfind.ScalableFont, error) {
-		select {
-		case <-waitCtx.Done():
-			return fontfind.NullFont, waitCtx.Err()
-		case r := <-ch:
-			return r.font, r.err
-		}
-	}
+	loader := &fontLoader{done: make(chan struct{})}
+	go func() {
+		loader.result = searchScalableFont(ctx, registry, desc, pipeline.resolvers)
+		// Closing publishes the immutable result to every waiter without blocking.
+		close(loader.done)
+	}()
 	return loader
 }
 
